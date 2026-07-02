@@ -94,7 +94,10 @@ CREATE TABLE profiles (
     health_status        TEXT,          -- user-entered, optional, encrypted at column level
     prep_status         TEXT,          -- user-entered, optional, encrypted at column level
     chems_preference    TEXT,          -- user-entered, optional
-    size_cm             SMALLINT,      -- user-entered, optional; first-pass field, filter/display rules TBD
+    size                TEXT,          -- s | m | l | xl | xxl — resolves the size_cm TBD note; categorical, not cm
+    smoker              BOOLEAN,       -- user-entered, optional
+    dirty_preference    TEXT,          -- dirty | not_dirty | ws_only
+    fisting_preference  TEXT,          -- ff_active | ff_passive | ff_vers | no_ff
     location            GEOGRAPHY(Point, 4326),
     location_shared     BOOLEAN NOT NULL DEFAULT false,
     location_precision  TEXT NOT NULL DEFAULT 'fuzzed', -- fuzzed | exact (opt-in only)

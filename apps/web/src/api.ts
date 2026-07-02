@@ -51,4 +51,9 @@ export interface Profile {
   bodyType: string | null;
   age: number | null;
   heightCm: number | null;
+  size: string | null;
+  healthStatus: string | null;
+  smoker: boolean | null;
+  dirtyPreference: string | null;
+  fistingPreference: string | null;
 }

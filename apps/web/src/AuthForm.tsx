@@ -1,10 +1,14 @@
 import { FormEvent, useState } from "react";
 import { api, ApiError } from "./api";
+import { Field, inputClass } from "./Field";
+import { LAUNCH_MARKET_COUNTRIES } from "./countries";
 
 export function AuthForm({ onAuthenticated }: { onAuthenticated: () => void }) {
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [country, setCountry] = useState("GB");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -12,6 +16,12 @@ export function AuthForm({ onAuthenticated }: { onAuthenticated: () => void }) {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (mode === "signup" && password !== confirmPassword) {
+      setError("Passwords don't match");
+      return;
+    }
+
     setLoading(true);
     try {
       const result = mode === "signup" ? await api.signup(email, password, country) : await api.login(email, password);
@@ -46,32 +56,68 @@ export function AuthForm({ onAuthenticated }: { onAuthenticated: () => void }) {
           </button>
         </div>
 
-        <input
-          type="email"
-          required
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full rounded-md bg-slate-900 px-3 py-2 outline-none focus:ring-2 focus:ring-slate-500"
-        />
-        <input
-          type="password"
-          required
-          minLength={8}
-          placeholder="Password (min 8 characters)"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full rounded-md bg-slate-900 px-3 py-2 outline-none focus:ring-2 focus:ring-slate-500"
-        />
-        {mode === "signup" && (
+        <Field id="email" label="Email">
           <input
+            id="email"
+            type="email"
             required
-            placeholder="Country (e.g. GB, DE)"
-            maxLength={2}
-            value={country}
-            onChange={(e) => setCountry(e.target.value.toUpperCase())}
-            className="w-full rounded-md bg-slate-900 px-3 py-2 outline-none focus:ring-2 focus:ring-slate-500"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className={inputClass}
           />
+        </Field>
+
+        <Field id="password" label="Password">
+          <div className="relative">
+            <input
+              id="password"
+              type={showPassword ? "text" : "password"}
+              required
+              minLength={8}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className={`${inputClass} pr-16`}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              className="absolute inset-y-0 right-0 px-3 text-xs text-slate-400"
+            >
+              {showPassword ? "Hide" : "Show"}
+            </button>
+          </div>
+        </Field>
+
+        {mode === "signup" && (
+          <>
+            <Field id="confirmPassword" label="Confirm password">
+              <input
+                id="confirmPassword"
+                type={showPassword ? "text" : "password"}
+                required
+                minLength={8}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className={inputClass}
+              />
+            </Field>
+
+            <Field id="country" label="Which country are you in?">
+              <select
+                id="country"
+                required
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+                className={inputClass}
+              >
+                {LAUNCH_MARKET_COUNTRIES.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </>
         )}
 
         {error && <p className="text-sm text-red-400">{error}</p>}

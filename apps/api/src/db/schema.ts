@@ -75,7 +75,10 @@ export const profiles = pgTable("profiles", {
   healthStatus: text("health_status"),
   prepStatus: text("prep_status"),
   chemsPreference: text("chems_preference"),
-  sizeCm: smallint("size_cm"),
+  size: text("size"), // s | m | l | xl | xxl
+  smoker: boolean("smoker"),
+  dirtyPreference: text("dirty_preference"), // dirty | not_dirty | ws_only
+  fistingPreference: text("fisting_preference"), // ff_active | ff_passive | ff_vers | no_ff
   location: geography("location"),
   locationShared: boolean("location_shared").notNull().default(false),
   locationPrecision: text("location_precision").notNull().default("fuzzed"),
