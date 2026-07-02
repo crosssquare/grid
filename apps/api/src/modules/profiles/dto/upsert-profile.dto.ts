@@ -27,12 +27,6 @@ export class UpsertProfileDto {
 
   @IsOptional()
   @IsInt()
-  @Min(18)
-  @Max(99)
-  age?: number;
-
-  @IsOptional()
-  @IsInt()
   @Min(100)
   @Max(250)
   heightCm?: number;

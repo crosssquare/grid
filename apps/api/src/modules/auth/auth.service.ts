@@ -25,7 +25,7 @@ export class AuthService {
     const passwordHash = await argon2.hash(dto.password);
     const [user] = await this.db
       .insert(users)
-      .values({ email: dto.email, passwordHash, country: dto.country })
+      .values({ email: dto.email, passwordHash, dateOfBirth: dto.dateOfBirth, country: dto.country })
       .returning();
 
     return this.issueTokens(user.id, user.email);

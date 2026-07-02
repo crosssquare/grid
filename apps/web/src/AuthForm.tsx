@@ -9,9 +9,21 @@ export function AuthForm({ onAuthenticated }: { onAuthenticated: () => void }) {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [dateOfBirth, setDateOfBirth] = useState("");
   const [country, setCountry] = useState("GB");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  function isAtLeast18(dob: string): boolean {
+    const birth = new Date(dob);
+    if (Number.isNaN(birth.getTime())) return false;
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const hadBirthdayThisYear =
+      today.getMonth() > birth.getMonth() || (today.getMonth() === birth.getMonth() && today.getDate() >= birth.getDate());
+    if (!hadBirthdayThisYear) age -= 1;
+    return age >= 18;
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -21,10 +33,15 @@ export function AuthForm({ onAuthenticated }: { onAuthenticated: () => void }) {
       setError("Passwords don't match");
       return;
     }
+    if (mode === "signup" && !isAtLeast18(dateOfBirth)) {
+      setError("You must be at least 18 years old to sign up");
+      return;
+    }
 
     setLoading(true);
     try {
-      const result = mode === "signup" ? await api.signup(email, password, country) : await api.login(email, password);
+      const result =
+        mode === "signup" ? await api.signup(email, password, dateOfBirth, country) : await api.login(email, password);
       localStorage.setItem("accessToken", result.accessToken);
       localStorage.setItem("refreshToken", result.refreshToken);
       onAuthenticated();
@@ -98,6 +115,17 @@ export function AuthForm({ onAuthenticated }: { onAuthenticated: () => void }) {
                 minLength={8}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
+                className={inputClass}
+              />
+            </Field>
+
+            <Field id="dateOfBirth" label="Date of birth">
+              <input
+                id="dateOfBirth"
+                type="date"
+                required
+                value={dateOfBirth}
+                onChange={(e) => setDateOfBirth(e.target.value)}
                 className={inputClass}
               />
             </Field>

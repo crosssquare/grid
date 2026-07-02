@@ -129,15 +129,9 @@ export function ProfileForm({ onLogout }: { onLogout: () => void }) {
         <div className="flex gap-3">
           <div className="w-1/2">
             <Field id="age" label="Age">
-              <input
-                id="age"
-                type="number"
-                min={18}
-                max={99}
-                value={profile.age ?? ""}
-                onChange={(e) => setProfile((p) => ({ ...p, age: e.target.value ? Number(e.target.value) : undefined }))}
-                className={inputClass}
-              />
+              <div id="age" className={`${inputClass} text-slate-400`}>
+                {profile.age ?? "—"}
+              </div>
             </Field>
           </div>
           <div className="w-1/2">

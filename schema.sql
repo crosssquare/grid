@@ -11,6 +11,9 @@ CREATE TABLE users (
     email               CITEXT UNIQUE NOT NULL,
     password_hash       TEXT,                          -- null if passkey-only
     email_verified_at   TIMESTAMPTZ,
+    date_of_birth       DATE,                          -- captured at signup; 18+ enforced at signup time.
+                                                         -- Nullable only because it predates existing Phase 0
+                                                         -- alpha accounts — required going forward.
     country             TEXT NOT NULL,                  -- ISO 3166-1 alpha-2, e.g. 'DE','GB'
     locale              TEXT NOT NULL DEFAULT 'en',
     account_status      TEXT NOT NULL DEFAULT 'active', -- active | suspended | soft_deleted | hard_deleted
@@ -90,7 +93,8 @@ CREATE TABLE profiles (
     body_type           TEXT,          -- slim | athletic | stocky | muscular | average
     height_cm           SMALLINT,
     weight_kg           SMALLINT,
-    age                 SMALLINT,
+    -- age is intentionally not stored here — computed from users.date_of_birth so it can
+    -- never go stale or be self-reported inaccurately.
     health_status        TEXT,          -- user-entered, optional, encrypted at column level
     prep_status         TEXT,          -- user-entered, optional, encrypted at column level
     chems_preference    TEXT,          -- user-entered, optional

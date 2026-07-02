@@ -1,8 +1,19 @@
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { eq } from "drizzle-orm";
 import { DRIZZLE_DB, DrizzleDb } from "../../db/db.module";
-import { profiles } from "../../db/schema";
+import { profiles, users } from "../../db/schema";
 import { UpsertProfileDto } from "./dto/upsert-profile.dto";
+
+function computeAge(dateOfBirth: string | null): number | null {
+  if (!dateOfBirth) return null;
+  const dob = new Date(dateOfBirth);
+  const today = new Date();
+  let age = today.getFullYear() - dob.getFullYear();
+  const hasHadBirthdayThisYear =
+    today.getMonth() > dob.getMonth() || (today.getMonth() === dob.getMonth() && today.getDate() >= dob.getDate());
+  if (!hasHadBirthdayThisYear) age -= 1;
+  return age;
+}
 
 @Injectable()
 export class ProfilesService {
@@ -13,7 +24,8 @@ export class ProfilesService {
     if (!profile) {
       throw new NotFoundException("Profile not created yet");
     }
-    return profile;
+    const user = await this.db.query.users.findFirst({ where: eq(users.id, userId) });
+    return { ...profile, age: computeAge(user?.dateOfBirth ?? null) };
   }
 
   async upsert(userId: string, dto: UpsertProfileDto) {
@@ -25,6 +37,7 @@ export class ProfilesService {
         set: { ...dto, updatedAt: new Date() }
       })
       .returning();
-    return profile;
+    const user = await this.db.query.users.findFirst({ where: eq(users.id, userId) });
+    return { ...profile, age: computeAge(user?.dateOfBirth ?? null) };
   }
 }

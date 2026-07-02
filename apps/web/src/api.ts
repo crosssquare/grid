@@ -72,8 +72,11 @@ export interface AuthResponse {
 }
 
 export const api = {
-  signup: (email: string, password: string, country: string) =>
-    request<AuthResponse>("/auth/signup", { method: "POST", body: JSON.stringify({ email, password, country }) }),
+  signup: (email: string, password: string, dateOfBirth: string, country: string) =>
+    request<AuthResponse>("/auth/signup", {
+      method: "POST",
+      body: JSON.stringify({ email, password, dateOfBirth, country })
+    }),
   login: (email: string, password: string) =>
     request<AuthResponse>("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
   getMyProfile: () => request<Profile>("/profiles/me"),
