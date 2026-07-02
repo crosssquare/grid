@@ -45,6 +45,17 @@ export class AuthService {
     return this.issueTokens(user.id, user.email);
   }
 
+  refresh(refreshToken: string) {
+    try {
+      const payload = this.jwt.verify<{ sub: string; email: string }>(refreshToken, {
+        secret: this.config.get<string>("jwtRefreshSecret")
+      });
+      return this.issueTokens(payload.sub, payload.email);
+    } catch {
+      throw new UnauthorizedException("Invalid or expired refresh token");
+    }
+  }
+
   private issueTokens(userId: string, email: string) {
     const payload = { sub: userId, email };
     const accessToken = this.jwt.sign(payload, {
