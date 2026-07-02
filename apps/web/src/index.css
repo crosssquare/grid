@@ -1,3 +1,13 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Minimum comfortable touch target size for all interactive elements. */
+@layer base {
+  button,
+  input,
+  select,
+  textarea {
+    min-height: 48px;
+  }
+}

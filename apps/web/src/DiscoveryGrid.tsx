@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, DiscoveryParams, DiscoveryProfile, Profile } from "./api";
-import { inputClass } from "./Field";
 
 const ROLES = ["top", "more_top", "vers", "bottom", "more_bottom"];
 const BODY_TYPES = ["slim", "athletic", "stocky", "muscular", "average"];
@@ -83,23 +82,23 @@ export function DiscoveryGrid() {
         <LocationStatus />
       </div>
 
-      <div className="flex flex-wrap gap-2 mb-4">
+      <div className="flex flex-nowrap gap-2 mb-4 overflow-x-auto">
         <button
           onClick={() => setFilters((f) => ({ ...f, sort: f.sort === "distance" ? "new" : "distance" }))}
-          className="rounded-full bg-slate-900 px-3 py-1.5 text-xs"
+          className="shrink-0 rounded-full bg-slate-900 px-4 text-xs"
         >
           {filters.sort === "new" ? "New users" : "Nearby"}
         </button>
         <button
           onClick={() => setFilters((f) => ({ ...f, onlineOnly: !f.onlineOnly }))}
-          className={`rounded-full px-3 py-1.5 text-xs ${filters.onlineOnly ? "bg-indigo-600" : "bg-slate-900"}`}
+          className={`shrink-0 rounded-full px-4 text-xs ${filters.onlineOnly ? "bg-indigo-600" : "bg-slate-900"}`}
         >
           Online now
         </button>
         <select
           value={filters.role ?? ""}
           onChange={(e) => setFilters((f) => ({ ...f, role: e.target.value || undefined }))}
-          className="rounded-full bg-slate-900 px-3 py-1.5 text-xs"
+          className="shrink-0 rounded-full bg-slate-900 px-4 text-xs"
         >
           <option value="">Any role</option>
           {ROLES.map((r) => (
@@ -111,7 +110,7 @@ export function DiscoveryGrid() {
         <select
           value={filters.bodyType ?? ""}
           onChange={(e) => setFilters((f) => ({ ...f, bodyType: e.target.value || undefined }))}
-          className="rounded-full bg-slate-900 px-3 py-1.5 text-xs"
+          className="shrink-0 rounded-full bg-slate-900 px-4 text-xs"
         >
           <option value="">Any body type</option>
           {BODY_TYPES.map((b) => (
@@ -124,7 +123,7 @@ export function DiscoveryGrid() {
           placeholder="#hashtag"
           value={filters.hashtag ?? ""}
           onChange={(e) => setFilters((f) => ({ ...f, hashtag: e.target.value || undefined }))}
-          className={`${inputClass} w-28 rounded-full px-3 py-1.5 text-xs`}
+          className="shrink-0 w-28 rounded-full bg-slate-900 px-4 text-xs outline-none focus:ring-2 focus:ring-slate-500"
         />
       </div>
 
