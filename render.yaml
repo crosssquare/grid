@@ -31,7 +31,6 @@ services:
   - type: web
     name: grid-web
     runtime: static
-    plan: free
     buildCommand: npm install && npm run build --workspace=packages/shared && npm run build --workspace=apps/web
     staticPublishPath: apps/web/dist
 
