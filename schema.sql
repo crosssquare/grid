@@ -3,6 +3,7 @@
 -- ============================================================
 CREATE EXTENSION IF NOT EXISTS postgis;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS citext;
 
 -- ---------- Users & Auth ----------
 CREATE TABLE users (
@@ -164,6 +165,40 @@ CREATE TABLE profile_views (
     viewed_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- ---------- Communication ----------
+CREATE TABLE taps (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    sender_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    recipient_id  UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE conversations (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_a_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_b_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status        TEXT NOT NULL DEFAULT 'request', -- request | active | archived | expired
+    last_message_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (user_a_id, user_b_id)
+);
+-- Scheduled job: any conversation with status = 'request' and last_message_at older than 7 days
+-- with no reply from the recipient transitions to 'expired' and drops off the requests list.
+-- This is an inbox-hygiene state change, not a deletion — messages remain in the DB per the
+-- standard retention policy, so a later report/moderation review is still possible.
+CREATE INDEX idx_conversations_request_expiry ON conversations (status, last_message_at)
+    WHERE status = 'request';
+
+CREATE TABLE messages (
+    id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    conversation_id  UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    sender_id        UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    body             TEXT,
+    media_id         UUID REFERENCES media(id),
+    read_at          TIMESTAMPTZ,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- ---------- Meet Reviews ----------
 -- Gate: either party can flag a conversation as a confirmed real-world meetup.
 -- Reviewing is only permitted once a meet_confirmation exists between the two users.
@@ -201,40 +236,6 @@ CREATE TABLE review_reports (
     reason_code   TEXT NOT NULL,  -- harassment | defamation | false_content | personal_info | other
     status        TEXT NOT NULL DEFAULT 'open',
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
--- ---------- Communication ----------
-CREATE TABLE taps (
-    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    sender_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    recipient_id  UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE TABLE conversations (
-    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_a_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    user_b_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    status        TEXT NOT NULL DEFAULT 'request', -- request | active | archived | expired
-    last_message_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE (user_a_id, user_b_id)
-);
--- Scheduled job: any conversation with status = 'request' and last_message_at older than 7 days
--- with no reply from the recipient transitions to 'expired' and drops off the requests list.
--- This is an inbox-hygiene state change, not a deletion — messages remain in the DB per the
--- standard retention policy, so a later report/moderation review is still possible.
-CREATE INDEX idx_conversations_request_expiry ON conversations (status, last_message_at)
-    WHERE status = 'request';
-
-CREATE TABLE messages (
-    id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    conversation_id  UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
-    sender_id        UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    body             TEXT,
-    media_id         UUID REFERENCES media(id),
-    read_at          TIMESTAMPTZ,
-    created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- ---------- Community: Newsfeed, Events, Classifieds ----------
