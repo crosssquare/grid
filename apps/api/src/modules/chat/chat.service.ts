@@ -1,7 +1,7 @@
 import { ForbiddenException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { and, asc, eq, or, sql } from "drizzle-orm";
 import { DRIZZLE_DB, DrizzleDb } from "../../db/db.module";
-import { conversations, messages } from "../../db/schema";
+import { conversations, messages, blocks, meetConfirmations } from "../../db/schema";
 
 interface ConversationRow extends Record<string, unknown> {
   id: string;
@@ -17,9 +17,22 @@ interface ConversationRow extends Record<string, unknown> {
 export class ChatService {
   constructor(@Inject(DRIZZLE_DB) private readonly db: DrizzleDb) {}
 
+  private async isBlocked(userA: string, userB: string) {
+    const row = await this.db.query.blocks.findFirst({
+      where: or(
+        and(eq(blocks.userId, userA), eq(blocks.blockedId, userB)),
+        and(eq(blocks.userId, userB), eq(blocks.blockedId, userA))
+      )
+    });
+    return Boolean(row);
+  }
+
   async getOrCreate(userId: string, otherUserId: string) {
     if (userId === otherUserId) {
       throw new ForbiddenException("Can't start a conversation with yourself");
+    }
+    if (await this.isBlocked(userId, otherUserId)) {
+      throw new ForbiddenException("Can't start a conversation with this user");
     }
     const [userAId, userBId] = [userId, otherUserId].sort();
 
@@ -40,7 +53,12 @@ export class ChatService {
         (SELECT body FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) AS last_message_body
       FROM conversations c
       JOIN profiles p ON p.user_id = (CASE WHEN c.user_a_id = ${userId} THEN c.user_b_id ELSE c.user_a_id END)
-      WHERE c.user_a_id = ${userId} OR c.user_b_id = ${userId}
+      WHERE (c.user_a_id = ${userId} OR c.user_b_id = ${userId})
+        AND NOT EXISTS (
+          SELECT 1 FROM blocks b
+          WHERE (b.user_id = c.user_a_id AND b.blocked_id = c.user_b_id)
+             OR (b.user_id = c.user_b_id AND b.blocked_id = c.user_a_id)
+        )
       ORDER BY c.last_message_at DESC
     `);
 
@@ -62,6 +80,10 @@ export class ChatService {
     if (!conversation) throw new NotFoundException("Conversation not found");
     if (conversation.userAId !== userId && conversation.userBId !== userId) {
       throw new ForbiddenException("Not a participant in this conversation");
+    }
+    // A block hides shared history retroactively, for both parties, going forward (PRD §7.10).
+    if (await this.isBlocked(conversation.userAId, conversation.userBId)) {
+      throw new ForbiddenException("This conversation is no longer accessible");
     }
     return conversation;
   }
@@ -93,5 +115,18 @@ export class ChatService {
 
     const otherUserId = conversation.userAId === userId ? conversation.userBId : conversation.userAId;
     return { message, otherUserId };
+  }
+
+  // "We Met" confirmation gate — unlocks Meet Reviews once both parties have confirmed
+  // (PRD §5.5a). Recording it here just needs a conversation to exist between the two;
+  // it doesn't require either party to have already sent a message.
+  async confirmMeet(userId: string, otherUserId: string) {
+    const conversation = await this.getOrCreate(userId, otherUserId);
+    const [confirmation] = await this.db
+      .insert(meetConfirmations)
+      .values({ conversationId: conversation.id, confirmedById: userId, otherUserId })
+      .onConflictDoNothing()
+      .returning();
+    return confirmation ?? { alreadyConfirmed: true };
   }
 }

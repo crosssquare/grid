@@ -52,7 +52,19 @@ Root (Bottom Tab Bar — 5 tabs)
 │   ├── Online Now filter
 │   ├── Advanced Filters (role, body type, age, height, weight,
 │   │                      chems, HIV/health status, PrEP, TASP)
-│   └── Hashtag Search
+│   ├── Hashtag Search
+│   └── User Profile (viewed) — reached by tapping any grid card, feed post,
+│       favorite, or reviewer; also the target of shared profile links
+│       ├── Photo gallery (public albums; explicit media blurred, tap-to-reveal)
+│       ├── Video (if uploaded — public or unlock-in-chat per uploader's setting)
+│       ├── Bio, stats, role, tags, size, HIV/health status, PrEP, contact info
+│       │   (each field only shown if the profile owner set it to public)
+│       ├── Verification badges (photo-verified, peer-verified)
+│       ├── "Member since" / "last active"
+│       ├── Public reviews (approved + set to public by the reviewee only)
+│       ├── Actions: Tap · Message · Favorite · Report · Block · "We Met"
+│       └── Respects viewer's incognito setting (§5.2) — may or may not notify
+│           the profile owner that they were viewed, per the viewer's preference
 ├── Newsfeed
 │   ├── Public activity feed (photo uploads, status posts, check-ins)
 │   └── Post composer
@@ -105,6 +117,7 @@ Legend: **[MVP]** ship in v1 · **[V1.1]** fast-follow · **[V2]** later
 | Username change (supporter perk) | FabGuys | V1.1 |
 | "Member since" + "last active" display | FabGuys | MVP |
 | Incognito browsing — opt out of notifying others when you view their profile | FabGuys | MVP |
+| **View another user's profile page** — full gallery, video, bio/stats/tags respecting each field's privacy setting, verification badges, public reviews, and action buttons (Tap/Message/Favorite/Report/Block/We Met); reached from the grid, feed, favorites, or a shared link | Both (merged) | MVP |
 
 ### 5.3 Discovery
 | Feature | Source | Priority |

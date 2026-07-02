@@ -39,4 +39,9 @@ export class ChatController {
     this.gateway.emitToUser(otherUserId, "message:new", { conversationId: id, message });
     return message;
   }
+
+  @Post("conversations/meet/:otherUserId")
+  confirmMeet(@CurrentUser() userId: string, @Param("otherUserId", ParseUUIDPipe) otherUserId: string) {
+    return this.chat.confirmMeet(userId, otherUserId);
+  }
 }

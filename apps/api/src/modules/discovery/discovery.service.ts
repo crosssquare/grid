@@ -71,7 +71,11 @@ export class DiscoveryService {
       WHERE p.user_id = ${viewerId}
     `);
 
-    const conditions = [sql`p.user_id != ${viewerId}`, sql`p.visibility != 'hidden'`];
+    const conditions = [
+      sql`p.user_id != ${viewerId}`,
+      sql`p.visibility != 'hidden'`,
+      sql`NOT EXISTS (SELECT 1 FROM blocks b WHERE (b.user_id = ${viewerId} AND b.blocked_id = p.user_id) OR (b.user_id = p.user_id AND b.blocked_id = ${viewerId}))`
+    ];
 
     if (query.onlineOnly === "true") {
       conditions.push(sql`p.online_status = 'online'`);

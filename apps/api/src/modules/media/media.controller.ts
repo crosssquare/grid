@@ -1,4 +1,15 @@
-import { Controller, Post, UploadedFile, UseGuards, UseInterceptors, BadRequestException, Body } from "@nestjs/common";
+import {
+  Controller,
+  Post,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
+  BadRequestException,
+  Body
+} from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { CurrentUser } from "../auth/current-user.decorator";
@@ -23,5 +34,15 @@ export class MediaController {
       throw new BadRequestException("mediaType must be 'photo' or 'video'");
     }
     return this.media.upload(userId, file, mediaType);
+  }
+
+  @Get("mine")
+  listMine(@CurrentUser() userId: string) {
+    return this.media.listMine(userId);
+  }
+
+  @Get("user/:userId")
+  listForUser(@Param("userId", ParseUUIDPipe) userId: string) {
+    return this.media.listForUser(userId);
   }
 }

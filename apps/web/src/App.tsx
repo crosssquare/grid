@@ -3,6 +3,7 @@ import { AuthForm } from "./AuthForm";
 import { ProfileForm } from "./ProfileForm";
 import { DiscoveryGrid } from "./DiscoveryGrid";
 import { ChatView } from "./ChatView";
+import { ProfileView } from "./ProfileView";
 import { NavBar, View } from "./NavBar";
 import { disconnectSocket } from "./socket";
 
@@ -10,6 +11,7 @@ export default function App() {
   const [authed, setAuthed] = useState(() => Boolean(localStorage.getItem("accessToken")));
   const [view, setView] = useState<View>("grid");
   const [openConversation, setOpenConversation] = useState<{ id: string; displayName: string } | null>(null);
+  const [viewedUserId, setViewedUserId] = useState<string | null>(null);
 
   useEffect(() => {
     const onSessionExpired = () => setAuthed(false);
@@ -18,6 +20,7 @@ export default function App() {
   }, []);
 
   const openChat = useCallback((id: string, displayName: string) => {
+    setViewedUserId(null);
     setOpenConversation({ id, displayName });
     setView("chat");
   }, []);
@@ -31,9 +34,13 @@ export default function App() {
     return <AuthForm onAuthenticated={() => setAuthed(true)} />;
   }
 
+  if (viewedUserId) {
+    return <ProfileView userId={viewedUserId} onBack={() => setViewedUserId(null)} onMessage={openChat} />;
+  }
+
   return (
     <>
-      {view === "grid" && <DiscoveryGrid onMessage={openChat} />}
+      {view === "grid" && <DiscoveryGrid onMessage={openChat} onViewProfile={setViewedUserId} />}
       {view === "chat" && (
         <ChatView openConversationId={openConversation} onConsumeOpenConversation={() => setOpenConversation(null)} />
       )}

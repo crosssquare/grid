@@ -2,6 +2,7 @@ import { Inject, Injectable, ServiceUnavailableException } from "@nestjs/common"
 import { ConfigService } from "@nestjs/config";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { randomUUID } from "node:crypto";
+import { and, desc, eq } from "drizzle-orm";
 import { DRIZZLE_DB, DrizzleDb } from "../../db/db.module";
 import { media } from "../../db/schema";
 import { HashScanner, NoOpHashScanner } from "./hash-scanner";
@@ -63,6 +64,9 @@ export class MediaService {
         mediaType,
         storageKey,
         hashScanResult: scan.result,
+        // No private-album UI exists yet in Phase 0 — everything uploaded through this
+        // endpoint goes straight to the public gallery.
+        visibility: "public",
         // No human moderation queue exists yet in Phase 0 (that's a later Trust & Safety step) —
         // a clear hash scan is enough to approve for the two-person alpha test.
         moderationStatus: scan.result === "clear" ? "approved" : "csam_flagged"
@@ -70,5 +74,17 @@ export class MediaService {
       .returning();
 
     return row;
+  }
+
+  listMine(userId: string) {
+    return this.db.select().from(media).where(eq(media.userId, userId)).orderBy(desc(media.createdAt));
+  }
+
+  listForUser(userId: string) {
+    return this.db
+      .select()
+      .from(media)
+      .where(and(eq(media.userId, userId), eq(media.visibility, "public"), eq(media.moderationStatus, "approved")))
+      .orderBy(desc(media.createdAt));
   }
 }

@@ -99,7 +99,23 @@ export const api = {
   listConversations: () => request<ConversationSummary[]>("/conversations"),
   getMessages: (conversationId: string) => request<Message[]>(`/conversations/${conversationId}/messages`),
   sendMessage: (conversationId: string, body: string) =>
-    request<Message>(`/conversations/${conversationId}/messages`, { method: "POST", body: JSON.stringify({ body }) })
+    request<Message>(`/conversations/${conversationId}/messages`, { method: "POST", body: JSON.stringify({ body }) }),
+  confirmMeet: (otherUserId: string) => request(`/conversations/meet/${otherUserId}`, { method: "POST" }),
+  getViewedProfile: (userId: string) => request<ViewedProfile>(`/profiles/${userId}`),
+  addFavorite: (userId: string) => request(`/favorites/${userId}`, { method: "POST" }),
+  removeFavorite: (userId: string) => request(`/favorites/${userId}`, { method: "DELETE" }),
+  block: (userId: string) => request(`/blocks/${userId}`, { method: "POST" }),
+  unblock: (userId: string) => request(`/blocks/${userId}`, { method: "DELETE" }),
+  report: (reportedUserId: string, reasonCode: string, detail?: string) =>
+    request("/reports", { method: "POST", body: JSON.stringify({ reportedUserId, reasonCode, detail }) }),
+  listMyMedia: () => request<MediaItem[]>("/media/mine"),
+  listUserMedia: (userId: string) => request<MediaItem[]>(`/media/user/${userId}`),
+  uploadMedia: (file: File, mediaType: "photo" | "video") => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("mediaType", mediaType);
+    return request<MediaItem>("/media", { method: "POST", body: form });
+  }
 };
 
 export interface Profile {
@@ -115,8 +131,36 @@ export interface Profile {
   smoker: boolean | null;
   dirtyPreference: string | null;
   fistingPreference: string | null;
+  contactInfo: string | null;
   locationShared: boolean;
   hashtags: string[];
+}
+
+export interface MediaItem {
+  id: string;
+  mediaType: string;
+  storageKey: string;
+  isExplicit: boolean;
+  visibility?: string;
+  moderationStatus?: string;
+}
+
+export interface ViewedReview {
+  id: string;
+  rating: number | null;
+  body: string | null;
+  createdAt: string;
+  reviewerId: string | null;
+}
+
+export interface ViewedProfile extends Profile {
+  memberSince: string;
+  gallery: MediaItem[];
+  reviews: ViewedReview[];
+  isFavorited: boolean;
+  isSelf: boolean;
+  onlineStatus: string;
+  verifiedBadgeTier: number;
 }
 
 export interface DiscoveryParams {

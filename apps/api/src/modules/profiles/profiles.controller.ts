@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Put, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, ParseUUIDPipe, Put, UseGuards } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { ProfilesService } from "./profiles.service";
@@ -17,5 +17,10 @@ export class ProfilesController {
   @Put("me")
   upsert(@CurrentUser() userId: string, @Body() dto: UpsertProfileDto) {
     return this.profiles.upsert(userId, dto);
+  }
+
+  @Get(":userId")
+  getViewed(@CurrentUser() viewerId: string, @Param("userId", ParseUUIDPipe) userId: string) {
+    return this.profiles.getViewed(viewerId, userId);
   }
 }

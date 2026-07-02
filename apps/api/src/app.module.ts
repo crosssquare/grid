@@ -10,6 +10,9 @@ import { MediaModule } from "./modules/media/media.module";
 import { DiscoveryModule } from "./modules/discovery/discovery.module";
 import { TapsModule } from "./modules/taps/taps.module";
 import { ChatModule } from "./modules/chat/chat.module";
+import { FavoritesModule } from "./modules/favorites/favorites.module";
+import { BlocksModule } from "./modules/blocks/blocks.module";
+import { ReportsModule } from "./modules/reports/reports.module";
 
 @Module({
   imports: [
@@ -25,7 +28,10 @@ import { ChatModule } from "./modules/chat/chat.module";
     MediaModule,
     DiscoveryModule,
     TapsModule,
-    ChatModule
+    ChatModule,
+    FavoritesModule,
+    BlocksModule,
+    ReportsModule
   ]
 })
 export class AppModule {}

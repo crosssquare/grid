@@ -80,6 +80,7 @@ export const profiles = pgTable("profiles", {
   smoker: boolean("smoker"),
   dirtyPreference: text("dirty_preference"), // dirty | not_dirty | ws_only
   fistingPreference: text("fisting_preference"), // ff_active | ff_passive | ff_vers | no_ff
+  contactInfo: text("contact_info"),
   location: geography("location"),
   locationShared: boolean("location_shared").notNull().default(false),
   locationPrecision: text("location_precision").notNull().default("fuzzed"),
@@ -139,6 +140,13 @@ export const blocks = pgTable(
   (t) => [primaryKey({ columns: [t.userId, t.blockedId] })]
 );
 
+export const profileViews = pgTable("profile_views", {
+  viewerId: uuid("viewer_id").notNull(),
+  viewedId: uuid("viewed_id").notNull(),
+  visibleToViewed: boolean("visible_to_viewed").notNull(),
+  viewedAt: timestamp("viewed_at", { withTimezone: true }).notNull().defaultNow()
+});
+
 export const taps = pgTable("taps", {
   id: uuid("id").primaryKey().defaultRandom(),
   senderId: uuid("sender_id").notNull(),
@@ -168,6 +176,36 @@ export const messages = pgTable("messages", {
   readAt: timestamp("read_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
 });
+
+export const meetConfirmations = pgTable(
+  "meet_confirmations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    conversationId: uuid("conversation_id").notNull(),
+    confirmedById: uuid("confirmed_by_id").notNull(),
+    otherUserId: uuid("other_user_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (t) => [unique().on(t.conversationId, t.confirmedById)]
+);
+
+export const reviews = pgTable(
+  "reviews",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    meetConfirmationId: uuid("meet_confirmation_id").notNull(),
+    reviewerId: uuid("reviewer_id").notNull(),
+    revieweeId: uuid("reviewee_id").notNull(),
+    rating: smallint("rating"),
+    body: text("body"),
+    status: text("status").notNull().default("pending"),
+    visibility: text("visibility").notNull().default("private"),
+    reviewerAnonymizedPublicly: boolean("reviewer_anonymized_publicly").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    decidedAt: timestamp("decided_at", { withTimezone: true })
+  },
+  (t) => [unique().on(t.reviewerId, t.revieweeId, t.meetConfirmationId)]
+);
 
 export const events = pgTable("events", {
   id: uuid("id").primaryKey().defaultRandom(),

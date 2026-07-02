@@ -102,6 +102,7 @@ CREATE TABLE profiles (
     smoker              BOOLEAN,       -- user-entered, optional
     dirty_preference    TEXT,          -- dirty | not_dirty | ws_only
     fisting_preference  TEXT,          -- ff_active | ff_passive | ff_vers | no_ff
+    contact_info         TEXT,          -- user-entered, optional (e.g. Telegram/Snapchat handle); subject to the same per-field privacy toggle as other profile fields
     location            GEOGRAPHY(Point, 4326),
     location_shared     BOOLEAN NOT NULL DEFAULT false,
     location_precision  TEXT NOT NULL DEFAULT 'fuzzed', -- fuzzed | exact (opt-in only)
@@ -169,8 +170,14 @@ CREATE TABLE blocks (
 CREATE TABLE profile_views (
     viewer_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     viewed_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    visible_to_viewed BOOLEAN NOT NULL, -- snapshot of viewer's notify_on_profile_view setting AT THE TIME of this view;
+                                        -- don't recompute from the live profile setting, or a later toggle would
+                                        -- retroactively change past view history
     viewed_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- App-layer rule: the "Viewed Me" list only shows rows where visible_to_viewed = true.
+-- Incognito viewers still generate a row (for potential moderation/report use), it's just
+-- never surfaced to the viewed user.
 
 -- ---------- Communication ----------
 CREATE TABLE taps (

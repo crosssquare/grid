@@ -1,7 +1,17 @@
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
-import { eq, sql } from "drizzle-orm";
+import { and, desc, eq, or, sql } from "drizzle-orm";
 import { DRIZZLE_DB, DrizzleDb } from "../../db/db.module";
-import { profiles, users, hashtags, profileHashtags } from "../../db/schema";
+import {
+  profiles,
+  users,
+  hashtags,
+  profileHashtags,
+  media,
+  reviews,
+  favorites,
+  blocks,
+  profileViews
+} from "../../db/schema";
 import { UpsertProfileDto } from "./dto/upsert-profile.dto";
 
 function computeAge(dateOfBirth: string | null): number | null {
@@ -27,6 +37,89 @@ export class ProfilesService {
     const user = await this.db.query.users.findFirst({ where: eq(users.id, userId) });
     const tags = await this.getHashtags(userId);
     return { ...profile, age: computeAge(user?.dateOfBirth ?? null), hashtags: tags };
+  }
+
+  async getViewed(viewerId: string, targetUserId: string) {
+    const isSelf = viewerId === targetUserId;
+
+    if (!isSelf) {
+      const blocked = await this.db.query.blocks.findFirst({
+        where: or(
+          and(eq(blocks.userId, viewerId), eq(blocks.blockedId, targetUserId)),
+          and(eq(blocks.userId, targetUserId), eq(blocks.blockedId, viewerId))
+        )
+      });
+      if (blocked) {
+        throw new NotFoundException("Profile not found");
+      }
+    }
+
+    const profile = await this.db.query.profiles.findFirst({ where: eq(profiles.userId, targetUserId) });
+    if (!profile) {
+      throw new NotFoundException("Profile not found");
+    }
+    if (!isSelf && profile.visibility === "hidden") {
+      throw new NotFoundException("Profile not found");
+    }
+
+    const user = await this.db.query.users.findFirst({ where: eq(users.id, targetUserId) });
+    const tags = await this.getHashtags(targetUserId);
+
+    const galleryRows = await this.db
+      .select({ id: media.id, mediaType: media.mediaType, storageKey: media.storageKey, isExplicit: media.isExplicit })
+      .from(media)
+      .where(and(eq(media.userId, targetUserId), eq(media.visibility, "public"), eq(media.moderationStatus, "approved")))
+      .orderBy(desc(media.createdAt));
+
+    const reviewRows = await this.db
+      .select({
+        id: reviews.id,
+        rating: reviews.rating,
+        body: reviews.body,
+        createdAt: reviews.createdAt,
+        anonymized: reviews.reviewerAnonymizedPublicly,
+        reviewerId: reviews.reviewerId
+      })
+      .from(reviews)
+      .where(and(eq(reviews.revieweeId, targetUserId), eq(reviews.status, "approved"), eq(reviews.visibility, "public")))
+      .orderBy(desc(reviews.createdAt));
+
+    let isFavorited = false;
+    if (!isSelf) {
+      const favorite = await this.db.query.favorites.findFirst({
+        where: and(eq(favorites.userId, viewerId), eq(favorites.favoriteId, targetUserId))
+      });
+      isFavorited = Boolean(favorite);
+
+      const viewer = await this.db.query.profiles.findFirst({ where: eq(profiles.userId, viewerId) });
+      await this.db.insert(profileViews).values({
+        viewerId,
+        viewedId: targetUserId,
+        visibleToViewed: viewer?.notifyOnProfileView ?? true
+      });
+    }
+
+    return {
+      ...profile,
+      age: computeAge(user?.dateOfBirth ?? null),
+      memberSince: user?.createdAt ?? null,
+      hashtags: tags,
+      gallery: galleryRows.map((r) => ({
+        id: r.id,
+        mediaType: r.mediaType,
+        storageKey: r.storageKey,
+        isExplicit: r.isExplicit
+      })),
+      reviews: reviewRows.map((r) => ({
+        id: r.id,
+        rating: r.rating,
+        body: r.body,
+        createdAt: r.createdAt,
+        reviewerId: r.anonymized ? null : r.reviewerId
+      })),
+      isFavorited,
+      isSelf
+    };
   }
 
   async upsert(userId: string, dto: UpsertProfileDto) {

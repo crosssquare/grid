@@ -59,7 +59,13 @@ function LocationStatus() {
   );
 }
 
-export function DiscoveryGrid({ onMessage }: { onMessage: (conversationId: string, displayName: string) => void }) {
+export function DiscoveryGrid({
+  onMessage,
+  onViewProfile
+}: {
+  onMessage: (conversationId: string, displayName: string) => void;
+  onViewProfile: (userId: string) => void;
+}) {
   const [profiles, setProfiles] = useState<DiscoveryProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -150,16 +156,18 @@ export function DiscoveryGrid({ onMessage }: { onMessage: (conversationId: strin
             key={p.userId}
             className={`rounded-lg bg-slate-900 p-3 space-y-1 ${p.isSelf ? "ring-1 ring-indigo-500" : ""}`}
           >
-            <div className="flex items-center justify-between">
-              <p className="font-medium truncate">{p.displayName}</p>
-              {p.onlineStatus === "online" && <span className="h-2 w-2 rounded-full bg-emerald-400" />}
-            </div>
-            <p className="text-xs text-slate-400">
-              {[p.isSelf ? "You" : null, p.age, p.role?.replace("_", " "), formatDistance(p.distanceMeters)]
-                .filter(Boolean)
-                .join(" · ")}
-            </p>
-            {p.verifiedBadgeTier > 0 && <p className="text-xs text-indigo-400">Verified</p>}
+            <button onClick={() => onViewProfile(p.userId)} className="block w-full text-left">
+              <div className="flex items-center justify-between">
+                <p className="font-medium truncate">{p.displayName}</p>
+                {p.onlineStatus === "online" && <span className="h-2 w-2 rounded-full bg-emerald-400" />}
+              </div>
+              <p className="text-xs text-slate-400">
+                {[p.isSelf ? "You" : null, p.age, p.role?.replace("_", " "), formatDistance(p.distanceMeters)]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+              {p.verifiedBadgeTier > 0 && <p className="text-xs text-indigo-400">Verified</p>}
+            </button>
             {!p.isSelf && (
               <div className="flex gap-2 pt-1">
                 <button

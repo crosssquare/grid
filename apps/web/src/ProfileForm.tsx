@@ -1,5 +1,5 @@
-import { FormEvent, useEffect, useState } from "react";
-import { api, ApiError, Profile } from "./api";
+import { ChangeEvent, FormEvent, useEffect, useState } from "react";
+import { api, ApiError, MediaItem, Profile } from "./api";
 import { Field, inputClass } from "./Field";
 
 const ROLES = ["top", "more_top", "vers", "bottom", "more_bottom"];
@@ -32,6 +32,15 @@ export function ProfileForm({ onLogout }: { onLogout: () => void }) {
   const [status, setStatus] = useState<"loading" | "ready" | "saving">("loading");
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [myMedia, setMyMedia] = useState<MediaItem[]>([]);
+  const [uploading, setUploading] = useState(false);
+
+  function loadMedia() {
+    api
+      .listMyMedia()
+      .then(setMyMedia)
+      .catch(() => undefined);
+  }
 
   useEffect(() => {
     api
@@ -42,7 +51,24 @@ export function ProfileForm({ onLogout }: { onLogout: () => void }) {
       })
       .catch(() => undefined)
       .finally(() => setStatus("ready"));
+    loadMedia();
   }, []);
+
+  async function handleFileSelected(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploading(true);
+    setError(null);
+    try {
+      await api.uploadMedia(file, "photo");
+      loadMedia();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }
 
   function requestLocation() {
     setLocationStatus("requesting");
@@ -258,6 +284,36 @@ export function ProfileForm({ onLogout }: { onLogout: () => void }) {
             ))}
           </select>
         </Field>
+
+        <Field id="contactInfo" label="Contact info (e.g. Telegram/Snapchat handle)">
+          <input
+            id="contactInfo"
+            value={profile.contactInfo ?? ""}
+            onChange={(e) => setProfile((p) => ({ ...p, contactInfo: e.target.value }))}
+            className={inputClass}
+          />
+        </Field>
+
+        <div className="rounded-md bg-slate-900 p-3 space-y-2">
+          <span className="text-sm font-medium text-slate-300">Photos</span>
+          {myMedia.length > 0 && (
+            <div className="grid grid-cols-4 gap-2">
+              {myMedia.map((m) => (
+                <div
+                  key={m.id}
+                  className="aspect-square rounded-md bg-slate-800 flex items-center justify-center text-xs text-slate-500"
+                  title={m.moderationStatus}
+                >
+                  📷
+                </div>
+              ))}
+            </div>
+          )}
+          <label className="block w-full cursor-pointer rounded-md bg-slate-800 py-1.5 text-center text-sm">
+            {uploading ? "Uploading…" : "Upload a photo"}
+            <input type="file" accept="image/*" onChange={handleFileSelected} disabled={uploading} className="hidden" />
+          </label>
+        </div>
 
         <Field id="hashtags" label="Hashtags (comma-separated)">
           <input
