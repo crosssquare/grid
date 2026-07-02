@@ -129,4 +129,5 @@ export interface DiscoveryProfile {
   verifiedBadgeTier: number;
   age: number | null;
   distanceMeters: number | null;
+  isSelf: boolean;
 }

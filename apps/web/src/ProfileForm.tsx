@@ -276,8 +276,7 @@ export function ProfileForm({ onLogout }: { onLogout: () => void }) {
             </span>
           </div>
           <p className="text-xs text-slate-500">
-            Needed to show up in the nearby grid and see distance to others. Your exact location is never shown —
-            only a fuzzed distance, rounded to the nearest 100m.
+            Needed to show up in the nearby grid and see distance to others.
           </p>
           <button
             type="button"

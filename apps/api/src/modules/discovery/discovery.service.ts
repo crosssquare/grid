@@ -14,13 +14,6 @@ function computeAge(dateOfBirth: string | null): number | null {
   return age;
 }
 
-// PRD §8: never expose exact distance under 100m unless the profile owner opted into 'exact'.
-function fuzzDistance(meters: number | null, precision: string): number | null {
-  if (meters == null) return null;
-  if (precision === "exact") return Math.round(meters);
-  return Math.ceil(meters / 100) * 100;
-}
-
 interface DiscoveryRow extends Record<string, unknown> {
   user_id: string;
   display_name: string;
@@ -30,17 +23,54 @@ interface DiscoveryRow extends Record<string, unknown> {
   health_status: string | null;
   online_status: string;
   verified_badge_tier: number;
-  location_precision: string;
   date_of_birth: string | null;
   distance_m: number | null;
   created_at: string;
 }
+
+function mapRow(row: DiscoveryRow, isSelf = false) {
+  return {
+    userId: row.user_id,
+    displayName: row.display_name,
+    bio: row.bio,
+    role: row.role,
+    bodyType: row.body_type,
+    healthStatus: row.health_status,
+    onlineStatus: row.online_status,
+    verifiedBadgeTier: row.verified_badge_tier,
+    age: computeAge(row.date_of_birth),
+    // Distances are shown precisely, not fuzzed, per explicit product decision for the
+    // Phase 0 two-person alpha (overrides PRD §8's fuzzing requirement — revisit before
+    // real users join, since that's a stated privacy-by-design requirement, not a bug).
+    distanceMeters: row.distance_m == null ? null : Math.round(row.distance_m),
+    isSelf
+  };
+}
+
+const SELECT_FIELDS = sql`
+  p.user_id, p.display_name, p.bio, p.role, p.body_type, p.health_status,
+  p.online_status, p.verified_badge_tier, p.created_at, u.date_of_birth,
+  CASE
+    WHEN p.location IS NOT NULL AND p.location_shared AND viewer.location IS NOT NULL
+    THEN ST_Distance(p.location, viewer.location)
+    ELSE NULL
+  END AS distance_m
+`;
 
 @Injectable()
 export class DiscoveryService {
   constructor(@Inject(DRIZZLE_DB) private readonly db: DrizzleDb) {}
 
   async list(viewerId: string, query: DiscoveryQueryDto) {
+    // Own profile always appears first, as a sanity check, regardless of active filters.
+    const selfResult = await this.db.execute<DiscoveryRow>(sql`
+      SELECT ${SELECT_FIELDS}
+      FROM profiles p
+      JOIN users u ON u.id = p.user_id
+      CROSS JOIN (SELECT location FROM profiles WHERE user_id = ${viewerId}) viewer
+      WHERE p.user_id = ${viewerId}
+    `);
+
     const conditions = [sql`p.user_id != ${viewerId}`, sql`p.visibility != 'hidden'`];
 
     if (query.onlineOnly === "true") {
@@ -67,16 +97,8 @@ export class DiscoveryService {
       ? sql`ORDER BY distance_m ASC NULLS LAST, p.created_at DESC`
       : sql`ORDER BY p.created_at DESC`;
 
-    const result = await this.db.execute<DiscoveryRow>(sql`
-      SELECT
-        p.user_id, p.display_name, p.bio, p.role, p.body_type, p.health_status,
-        p.online_status, p.verified_badge_tier, p.location_precision, p.created_at,
-        u.date_of_birth,
-        CASE
-          WHEN p.location IS NOT NULL AND p.location_shared AND viewer.location IS NOT NULL
-          THEN ST_Distance(p.location, viewer.location)
-          ELSE NULL
-        END AS distance_m
+    const othersResult = await this.db.execute<DiscoveryRow>(sql`
+      SELECT ${SELECT_FIELDS}
       FROM profiles p
       JOIN users u ON u.id = p.user_id
       CROSS JOIN (SELECT location FROM profiles WHERE user_id = ${viewerId}) viewer
@@ -85,17 +107,9 @@ export class DiscoveryService {
       LIMIT 50
     `);
 
-    return result.rows.map((row) => ({
-      userId: row.user_id,
-      displayName: row.display_name,
-      bio: row.bio,
-      role: row.role,
-      bodyType: row.body_type,
-      healthStatus: row.health_status,
-      onlineStatus: row.online_status,
-      verifiedBadgeTier: row.verified_badge_tier,
-      age: computeAge(row.date_of_birth),
-      distanceMeters: fuzzDistance(row.distance_m, row.location_precision)
-    }));
+    return [
+      ...selfResult.rows.map((row) => mapRow(row, true)),
+      ...othersResult.rows.map((row) => mapRow(row, false))
+    ];
   }
 }
