@@ -1,6 +1,7 @@
 import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import { api, ApiError, getMediaUrl, MediaItem, Profile } from "./api";
 import { Field, inputClass } from "./Field";
+import { PendingReviews } from "./PendingReviews";
 
 const ROLES = ["top", "more_top", "vers", "bottom", "more_bottom"];
 const BODY_TYPES = ["slim", "athletic", "stocky", "muscular", "average"];
@@ -143,6 +144,8 @@ export function ProfileForm({ onLogout }: { onLogout: () => void }) {
             Log out
           </button>
         </div>
+
+        <PendingReviews />
 
         <Field id="displayName" label="Display name">
           <input

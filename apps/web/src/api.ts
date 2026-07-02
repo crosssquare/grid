@@ -123,7 +123,15 @@ export const api = {
     form.append("mediaType", mediaType);
     return request<MediaItem>("/media", { method: "POST", body: form });
   },
-  setProfilePhoto: (mediaId: string) => request(`/media/${mediaId}/profile-photo`, { method: "PUT" })
+  setProfilePhoto: (mediaId: string) => request(`/media/${mediaId}/profile-photo`, { method: "PUT" }),
+  submitReview: (revieweeId: string, rating: number | undefined, body: string) =>
+    request<Review>("/reviews", { method: "POST", body: JSON.stringify({ revieweeId, rating, body }) }),
+  listPendingReviews: () => request<PendingReview[]>("/reviews/pending"),
+  listMyReviews: () => request<Review[]>("/reviews/mine"),
+  decideReview: (reviewId: string, decision: "approved" | "rejected", visibility?: "public" | "private") =>
+    request(`/reviews/${reviewId}/decision`, { method: "PUT", body: JSON.stringify({ decision, visibility }) }),
+  reportReview: (reviewId: string, reasonCode: string) =>
+    request(`/reviews/${reviewId}/report`, { method: "POST", body: JSON.stringify({ reasonCode }) })
 };
 
 export interface Profile {
@@ -167,9 +175,33 @@ export interface ViewedProfile extends Profile {
   gallery: MediaItem[];
   reviews: ViewedReview[];
   isFavorited: boolean;
+  canReview: boolean;
+  myReviewStatus: string | null;
   isSelf: boolean;
   onlineStatus: string;
   verifiedBadgeTier: number;
+}
+
+export interface Review {
+  id: string;
+  meetConfirmationId: string;
+  reviewerId: string;
+  revieweeId: string;
+  rating: number | null;
+  body: string | null;
+  status: string;
+  visibility: string;
+  createdAt: string;
+  decidedAt: string | null;
+}
+
+export interface PendingReview {
+  id: string;
+  rating: number | null;
+  body: string | null;
+  createdAt: string;
+  reviewerId: string;
+  reviewerDisplayName: string;
 }
 
 export interface DiscoveryParams {

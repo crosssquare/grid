@@ -208,6 +208,15 @@ export const reviews = pgTable(
   (t) => [unique().on(t.reviewerId, t.revieweeId, t.meetConfirmationId)]
 );
 
+export const reviewReports = pgTable("review_reports", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  reviewId: uuid("review_id").notNull(),
+  reporterId: uuid("reporter_id").notNull(),
+  reasonCode: text("reason_code").notNull(),
+  status: text("status").notNull().default("open"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+});
+
 export const events = pgTable("events", {
   id: uuid("id").primaryKey().defaultRandom(),
   creatorId: uuid("creator_id").notNull(),

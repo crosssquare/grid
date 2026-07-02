@@ -13,6 +13,7 @@ import {
   profileViews
 } from "../../db/schema";
 import { UpsertProfileDto } from "./dto/upsert-profile.dto";
+import { ReviewsService } from "../reviews/reviews.service";
 
 function computeAge(dateOfBirth: string | null): number | null {
   if (!dateOfBirth) return null;
@@ -27,7 +28,10 @@ function computeAge(dateOfBirth: string | null): number | null {
 
 @Injectable()
 export class ProfilesService {
-  constructor(@Inject(DRIZZLE_DB) private readonly db: DrizzleDb) {}
+  constructor(
+    @Inject(DRIZZLE_DB) private readonly db: DrizzleDb,
+    private readonly reviewsService: ReviewsService
+  ) {}
 
   async getOwn(userId: string) {
     const profile = await this.db.query.profiles.findFirst({ where: eq(profiles.userId, userId) });
@@ -92,11 +96,16 @@ export class ProfilesService {
       .orderBy(desc(reviews.createdAt));
 
     let isFavorited = false;
+    let canReview = false;
+    let myReviewStatus: string | null = null;
     if (!isSelf) {
       const favorite = await this.db.query.favorites.findFirst({
         where: and(eq(favorites.userId, viewerId), eq(favorites.favoriteId, targetUserId))
       });
       isFavorited = Boolean(favorite);
+
+      myReviewStatus = await this.reviewsService.myReviewStatus(viewerId, targetUserId);
+      canReview = myReviewStatus === null && Boolean(await this.reviewsService.findMutualMeetConfirmation(viewerId, targetUserId));
 
       const viewer = await this.db.query.profiles.findFirst({ where: eq(profiles.userId, viewerId) });
       await this.db.insert(profileViews).values({
@@ -128,6 +137,8 @@ export class ProfilesService {
         reviewerId: r.anonymized ? null : r.reviewerId
       })),
       isFavorited,
+      canReview,
+      myReviewStatus,
       isSelf
     };
   }
