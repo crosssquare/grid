@@ -1,5 +1,5 @@
 import { ChangeEvent, FormEvent, useEffect, useState } from "react";
-import { api, ApiError, MediaItem, Profile } from "./api";
+import { api, ApiError, getMediaUrl, MediaItem, Profile } from "./api";
 import { Field, inputClass } from "./Field";
 
 const ROLES = ["top", "more_top", "vers", "bottom", "more_bottom"];
@@ -298,15 +298,25 @@ export function ProfileForm({ onLogout }: { onLogout: () => void }) {
           <span className="text-sm font-medium text-slate-300">Photos</span>
           {myMedia.length > 0 && (
             <div className="grid grid-cols-4 gap-2">
-              {myMedia.map((m) => (
-                <div
-                  key={m.id}
-                  className="aspect-square rounded-md bg-slate-800 flex items-center justify-center text-xs text-slate-500"
-                  title={m.moderationStatus}
-                >
-                  📷
-                </div>
-              ))}
+              {myMedia.map((m) =>
+                m.mediaType === "photo" ? (
+                  <img
+                    key={m.id}
+                    src={getMediaUrl(m.storageKey)}
+                    alt=""
+                    title={m.moderationStatus}
+                    className="aspect-square rounded-md bg-slate-800 object-cover"
+                  />
+                ) : (
+                  <div
+                    key={m.id}
+                    className="aspect-square rounded-md bg-slate-800 flex items-center justify-center text-xs text-slate-500"
+                    title={m.moderationStatus}
+                  >
+                    🎬
+                  </div>
+                )
+              )}
             </div>
           )}
           <label className="block w-full cursor-pointer rounded-md bg-slate-800 py-1.5 text-center text-sm">

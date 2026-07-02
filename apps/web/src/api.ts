@@ -1,5 +1,12 @@
 export const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 
+const SUPABASE_STORAGE_PUBLIC_URL =
+  import.meta.env.VITE_SUPABASE_STORAGE_URL ?? "https://ukczzbamgfqyvnrlojsc.supabase.co/storage/v1/object/public/media";
+
+export function getMediaUrl(storageKey: string): string {
+  return `${SUPABASE_STORAGE_PUBLIC_URL}/${storageKey}`;
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, ApiError, ViewedProfile } from "./api";
+import { api, ApiError, getMediaUrl, ViewedProfile } from "./api";
 
 const REPORT_REASONS = [
   { value: "fake_profile", label: "Fake profile" },
@@ -143,11 +143,23 @@ export function ProfileView({
 
       {profile.gallery.length > 0 && (
         <div className="grid grid-cols-3 gap-2 mb-4">
-          {profile.gallery.map((m) => (
-            <div key={m.id} className="aspect-square rounded-md bg-slate-900 flex items-center justify-center text-xs text-slate-500">
-              {m.mediaType === "photo" ? "📷" : "🎬"}
-            </div>
-          ))}
+          {profile.gallery.map((m) =>
+            m.mediaType === "photo" ? (
+              <img
+                key={m.id}
+                src={getMediaUrl(m.storageKey)}
+                alt=""
+                className="aspect-square rounded-md bg-slate-900 object-cover"
+              />
+            ) : (
+              <div
+                key={m.id}
+                className="aspect-square rounded-md bg-slate-900 flex items-center justify-center text-xs text-slate-500"
+              >
+                🎬
+              </div>
+            )
+          )}
         </div>
       )}
 
