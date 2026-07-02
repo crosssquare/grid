@@ -1,0 +1,42 @@
+# Render Blueprint — deploys apps/api (web service), apps/web (static site),
+# and a free Key Value (Redis-compatible) instance from this one repo.
+# See: https://render.com/docs/blueprint-spec
+#
+# DATABASE_URL is marked `sync: false` — it holds the Supabase DB password, so it's
+# entered once in the Render dashboard during blueprint setup, never committed here.
+
+services:
+  - type: web
+    name: grid-api
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm install && npm run build --workspace=packages/shared && npm run build --workspace=apps/api
+    startCommand: node apps/api/dist/main.js
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          name: grid-redis
+          type: redis
+          property: connectionString
+      - key: AGE_VERIFICATION_MODE
+        value: stub
+      - key: PAYMENTS_MODE
+        value: stub
+      - key: PORT
+        value: "3000"
+
+  - type: web
+    name: grid-web
+    runtime: static
+    plan: free
+    buildCommand: npm install && npm run build --workspace=packages/shared && npm run build --workspace=apps/web
+    staticPublishPath: apps/web/dist
+
+  - type: redis
+    name: grid-redis
+    plan: free
+    region: frankfurt
+    ipAllowList: []

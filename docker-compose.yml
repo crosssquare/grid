@@ -1,0 +1,24 @@
+# Optional — for fully-offline local dev only. The primary dev/testing setup points
+# .env at the real Supabase project + Render Key Value instance (see .env.example),
+# so local dev and the shared testing environment behave the same way.
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: grid
+      POSTGRES_PASSWORD: grid
+      POSTGRES_DB: grid
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+volumes:
+  pgdata:
