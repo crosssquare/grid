@@ -1,7 +1,8 @@
-export type View = "grid" | "chat" | "profile";
+export type View = "timeline" | "grid" | "chat" | "profile";
 
 export function NavBar({ view, onChange }: { view: View; onChange: (v: View) => void }) {
   const tabs: { id: View; label: string }[] = [
+    { id: "timeline", label: "Timeline" },
     { id: "grid", label: "Grid" },
     { id: "chat", label: "Chat" },
     { id: "profile", label: "Profile" }

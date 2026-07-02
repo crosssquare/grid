@@ -256,7 +256,11 @@ CREATE TABLE review_reports (
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- ---------- Community: Newsfeed, Events, Classifieds ----------
+-- ---------- Community: Timeline, Events, Classifieds ----------
+-- Note: feed_posts is the single shared public Timeline (the app's home tab).
+-- There is no per-user personal timeline — a user's posts only ever live on
+-- this one shared stream, queried/filtered by author when needed (e.g. for
+-- moderation), never surfaced as a standalone feature on someone's profile.
 CREATE TABLE feed_posts (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,

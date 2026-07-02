@@ -14,14 +14,9 @@ export class PostsController {
     return this.posts.create(userId, dto);
   }
 
-  @Get("mine")
-  listMine(@CurrentUser() userId: string) {
-    return this.posts.listMine(userId);
-  }
-
-  @Get("user/:userId")
-  listForUser(@CurrentUser() viewerId: string, @Param("userId", ParseUUIDPipe) userId: string) {
-    return this.posts.listForUser(viewerId, userId);
+  @Get()
+  listFeed(@CurrentUser() userId: string) {
+    return this.posts.listFeed(userId);
   }
 
   @Delete(":id")

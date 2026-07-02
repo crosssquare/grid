@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, getMediaUrl, ViewedProfile } from "./api";
 import { FlameIcon } from "./FlameIcon";
-import { Timeline } from "./Timeline";
 import { Lightbox } from "./Lightbox";
 
 const REPORT_REASONS = [
@@ -264,8 +263,6 @@ export function ProfileView({
         <StatRow label="Fisting" value={profile.fistingPreference} />
         <StatRow label="Contact" value={profile.contactInfo} />
       </div>
-
-      <Timeline userId={userId} isSelf={profile.isSelf} />
 
       <div className="mb-4">
         <h2 className="text-sm font-medium text-slate-400 mb-2">Reviews</h2>

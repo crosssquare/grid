@@ -13,7 +13,7 @@
 Grid merges the two strongest ideas in the gay social/dating category today:
 
 - **Buddy's** energy: fast, kinky-friendly, ad-free, feature-rich for free, with strong discovery (hashtags, filters, favorites) and a genuinely useful **events/classifieds** layer.
-- **FabGuys'** discipline: mature **trust & safety** stack (peer-to-peer verification, photo verification, age verification, anti-spam), a real **GDPR self-service** posture, and a clean **social/community** layer (newsfeed, hotlist, "want to meet today").
+- **FabGuys'** discipline: mature **trust & safety** stack (peer-to-peer verification, photo verification, age verification, anti-spam), a real **GDPR self-service** posture, and a clean **social/community** layer (Timeline, hotlist, "want to meet today").
 
 The result is a single product: **free-to-use, ad-free, judgment-free**, monetized through an optional "PRO/Supporter" subscription, built as a mobile web PWA so it installs like an app without App Store review friction — no native app is planned.
 
@@ -27,7 +27,7 @@ The result is a single product: **free-to-use, ad-free, judgment-free**, monetiz
 1. No ads, no paywalled safety or discovery features — usage limits exist only on high-volume, low-stakes actions (see Monetization Model)
 2. Actual identity trust layer via peer verification + photo verification (matches FabGuys, which most kink-forward apps skip)
 3. A genuine local **events & classifieds** calendar, not just a grid of profiles
-4. Community layer (newsfeed, hashtags, hotlist) so the app has a reason to open outside of "looking for now"
+4. Community layer (Timeline, hashtags, hotlist) so the app has a reason to open outside of "looking for now"
 5. GDPR-first from day one — self-service data export/delete, granular consent, not bolted on later
 
 ---
@@ -45,34 +45,32 @@ Adult (18+) gay and bisexual men, initial launch markets **UK, Ireland, Germany,
 **Two separate surfaces:** a public marketing site (logged-out, crawlable, SFW — see §5.10) and the authenticated app (behind signup, PWA shell, where all explicit content lives). The tree below is the authenticated app; the marketing site is a handful of standalone pages (home, safety, pricing, legal) that link into the app's signup flow.
 
 ```
-Root (Bottom Tab Bar — 5 tabs)
-├── Grid (Home/Discovery)
+Root (Bottom Tab Bar — 5 tabs, Timeline is the default/opening tab)
+├── Timeline (Home) — the single shared public activity stream, everyone's
+│   │  posts in one place; this is what opens first, not the Grid
+│   ├── Public activity feed (photo uploads, status posts, check-ins)
+│   └── Post composer
+├── Grid (Discovery)
 │   ├── Nearby grid (GPS distance-sorted)
 │   ├── New Users
 │   ├── Online Now filter
 │   ├── Advanced Filters (role, body type, age, height, weight,
 │   │                      chems, HIV/health status, PrEP, TASP)
 │   ├── Hashtag Search
-│   └── User Profile (viewed) — reached by tapping any grid card, feed post,
-│       favorite, or reviewer; also the target of shared profile links
+│   └── User Profile (viewed) — reached by tapping any grid card, timeline
+│       post, favorite, or reviewer; also the target of shared profile links.
+│       No personal timeline here — a user's activity only ever lives on the
+│       one shared Timeline tab, not duplicated onto their own profile.
 │       ├── Photo gallery (public albums; explicit media blurred, tap-to-reveal)
 │       ├── Video (if uploaded — public or unlock-in-chat per uploader's setting)
 │       ├── Bio, stats, role, tags, size, HIV/health status, PrEP, contact info
 │       │   (each field only shown if the profile owner set it to public)
 │       ├── Verification badges (photo-verified, peer-verified)
 │       ├── "Member since" / "last active"
-│       ├── Timeline — this user's own public posts/activity, reverse-
-│       │   chronological (same posts that surface in the aggregate Newsfeed,
-│       │   but anchored to their profile as a lasting history, not just a
-│       │   scrolling stream); hidden posts and posts from a hidden profile
-│       │   don't appear here even if they were once visible in the feed
 │       ├── Public reviews (approved + set to public by the reviewee only)
 │       ├── Actions: Tap · Message · Favorite · Report · Block · "We Met"
 │       └── Respects viewer's incognito setting (§5.2) — may or may not notify
 │           the profile owner that they were viewed, per the viewer's preference
-├── Newsfeed
-│   ├── Public activity feed (photo uploads, status posts, check-ins)
-│   └── Post composer
 ├── Chat
 │   ├── Taps (lightweight interest signal)
 │   ├── Conversations (text/photo/video)
@@ -146,8 +144,7 @@ Legend: **[MVP]** ship in v1 · **[V1.1]** fast-follow · **[V2]** later
 ### 5.5 Social / Community
 | Feature | Source | Priority |
 |---|---|---|
-| Newsfeed — aggregate public activity, photo posts, check-ins | FabGuys | V1.1 |
-| Personal Timeline — the same posts, anchored permanently to the poster's own profile as a lasting history (not just a scrolling stream); respects hidden-profile and hidden-post settings independently of the aggregate feed | FabGuys | V1.1 |
+| Timeline — single shared public activity feed, the app's default/home tab (not a per-profile feature; no individual timeline lives on anyone's profile) | FabGuys | MVP |
 | Viewed Me | FabGuys | V1.1 |
 | Want to Meet Today board | FabGuys | MVP |
 | Events calendar (buddy-created group events) | Buddy | MVP |
@@ -319,7 +316,7 @@ This is the hard gate before any real member joins. Wire in: the real accredited
 Open signups, founding member program active, EN + DE locales, UK + DE markets. Triggered by Phase 1's exit criteria being met, not a date.
 
 **Phase 3 — V1.1**
-Newsfeed, Viewed Me, peer verification (message-based vouching), venue guide, additional locales, saved filter presets, username changes, photo verification moving from manual to AI-assisted review as volume grows. Triggered by your own judgment that the MVP is stable and worth extending, not a fixed post-launch date.
+Viewed Me, peer verification (message-based vouching), venue guide, additional locales, saved filter presets, username changes, photo verification moving from manual to AI-assisted review as volume grows. Triggered by your own judgment that the MVP is stable and worth extending, not a fixed post-launch date.
 
 **Phase 4 — V2**
 Multi-country drill-down browsing, profile boosts, deeper localization.

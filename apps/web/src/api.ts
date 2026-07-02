@@ -133,8 +133,7 @@ export const api = {
   reportReview: (reviewId: string, reasonCode: string) =>
     request(`/reviews/${reviewId}/report`, { method: "POST", body: JSON.stringify({ reasonCode }) }),
   createPost: (body: string) => request<Post>("/posts", { method: "POST", body: JSON.stringify({ body }) }),
-  listMyPosts: () => request<Post[]>("/posts/mine"),
-  listUserPosts: (userId: string) => request<Post[]>(`/posts/user/${userId}`),
+  listFeed: () => request<FeedPost[]>("/posts"),
   deletePost: (postId: string) => request(`/posts/${postId}`, { method: "DELETE" })
 };
 
@@ -218,6 +217,17 @@ export interface Post {
   body: string | null;
   mediaId: string | null;
   createdAt: string;
+}
+
+export interface FeedPost {
+  id: string;
+  userId: string;
+  body: string | null;
+  mediaId: string | null;
+  createdAt: string;
+  displayName: string;
+  profilePhotoStorageKey: string | null;
+  isMine: boolean;
 }
 
 export interface DiscoveryParams {
