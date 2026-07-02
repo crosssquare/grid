@@ -26,6 +26,9 @@ const FISTING_PREFERENCES = [
 
 export function ProfileForm({ onLogout }: { onLogout: () => void }) {
   const [profile, setProfile] = useState<Partial<Profile>>({});
+  const [hashtagsInput, setHashtagsInput] = useState("");
+  const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locationStatus, setLocationStatus] = useState<"idle" | "requesting" | "granted" | "denied">("idle");
   const [status, setStatus] = useState<"loading" | "ready" | "saving">("loading");
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -33,10 +36,26 @@ export function ProfileForm({ onLogout }: { onLogout: () => void }) {
   useEffect(() => {
     api
       .getMyProfile()
-      .then(setProfile)
+      .then((p) => {
+        setProfile(p);
+        setHashtagsInput(p.hashtags?.join(", ") ?? "");
+      })
       .catch(() => undefined)
       .finally(() => setStatus("ready"));
   }, []);
+
+  function requestLocation() {
+    setLocationStatus("requesting");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setCoords({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+        setProfile((p) => ({ ...p, locationShared: true }));
+        setLocationStatus("granted");
+      },
+      () => setLocationStatus("denied"),
+      { enableHighAccuracy: false, timeout: 10000 }
+    );
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -44,8 +63,17 @@ export function ProfileForm({ onLogout }: { onLogout: () => void }) {
     setSaved(false);
     setStatus("saving");
     try {
-      const result = await api.saveMyProfile(profile);
+      const hashtags = hashtagsInput
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean);
+      const result = await api.saveMyProfile({
+        ...profile,
+        hashtags,
+        ...(coords ? { latitude: coords.latitude, longitude: coords.longitude } : {})
+      });
       setProfile(result);
+      setHashtagsInput(result.hashtags?.join(", ") ?? "");
       setSaved(true);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong");
@@ -65,7 +93,7 @@ export function ProfileForm({ onLogout }: { onLogout: () => void }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 px-4 py-8">
+    <div className="min-h-screen bg-slate-950 text-slate-100 px-4 py-8 pb-24">
       <form onSubmit={handleSubmit} className="mx-auto w-full max-w-sm space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold">My Profile</h1>
@@ -229,6 +257,45 @@ export function ProfileForm({ onLogout }: { onLogout: () => void }) {
             ))}
           </select>
         </Field>
+
+        <Field id="hashtags" label="Hashtags (comma-separated)">
+          <input
+            id="hashtags"
+            placeholder="e.g. bear, kink, host"
+            value={hashtagsInput}
+            onChange={(e) => setHashtagsInput(e.target.value)}
+            className={inputClass}
+          />
+        </Field>
+
+        <div className="rounded-md bg-slate-900 p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-slate-300">Share my location</span>
+            <span className="text-xs text-slate-500">
+              {profile.locationShared ? "On" : "Off"}
+            </span>
+          </div>
+          <p className="text-xs text-slate-500">
+            Needed to show up in the nearby grid and see distance to others. Your exact location is never shown —
+            only a fuzzed distance, rounded to the nearest 100m.
+          </p>
+          <button
+            type="button"
+            onClick={requestLocation}
+            className="w-full rounded-md bg-slate-800 py-1.5 text-sm"
+          >
+            {locationStatus === "requesting"
+              ? "Requesting…"
+              : locationStatus === "granted"
+                ? "Location captured"
+                : "Use my current location"}
+          </button>
+          {locationStatus === "denied" && (
+            <p className="text-xs text-red-400">
+              Location permission denied — enable it in your browser settings to appear in the nearby grid.
+            </p>
+          )}
+        </div>
 
         {error && <p className="text-sm text-red-400">{error}</p>}
         {saved && <p className="text-sm text-emerald-400">Saved</p>}

@@ -1,4 +1,4 @@
-import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Length, Max, Min } from "class-validator";
+import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsInt, IsLatitude, IsLongitude, IsOptional, IsString, Length, Max, Min } from "class-validator";
 
 const ROLES = ["top", "more_top", "vers", "bottom", "more_bottom"] as const;
 const BODY_TYPES = ["slim", "athletic", "stocky", "muscular", "average"] as const;
@@ -50,4 +50,22 @@ export class UpsertProfileDto {
   @IsOptional()
   @IsIn(FISTING_PREFERENCES)
   fistingPreference?: (typeof FISTING_PREFERENCES)[number];
+
+  @IsOptional()
+  @IsBoolean()
+  locationShared?: boolean;
+
+  @IsOptional()
+  @IsLatitude()
+  latitude?: number;
+
+  @IsOptional()
+  @IsLongitude()
+  longitude?: number;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @IsString({ each: true })
+  hashtags?: string[];
 }

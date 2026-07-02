@@ -80,7 +80,16 @@ export const api = {
   login: (email: string, password: string) =>
     request<AuthResponse>("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
   getMyProfile: () => request<Profile>("/profiles/me"),
-  saveMyProfile: (dto: Partial<Profile>) => request<Profile>("/profiles/me", { method: "PUT", body: JSON.stringify(dto) })
+  saveMyProfile: (dto: Partial<Profile> & { latitude?: number; longitude?: number }) =>
+    request<Profile>("/profiles/me", { method: "PUT", body: JSON.stringify(dto) }),
+  discover: (params: DiscoveryParams) => {
+    const search = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined && value !== "") search.set(key, String(value));
+    }
+    const qs = search.toString();
+    return request<DiscoveryProfile[]>(`/discovery${qs ? `?${qs}` : ""}`);
+  }
 };
 
 export interface Profile {
@@ -96,4 +105,28 @@ export interface Profile {
   smoker: boolean | null;
   dirtyPreference: string | null;
   fistingPreference: string | null;
+  locationShared: boolean;
+  hashtags: string[];
+}
+
+export interface DiscoveryParams {
+  sort?: "distance" | "new";
+  onlineOnly?: boolean;
+  role?: string;
+  bodyType?: string;
+  healthStatus?: string;
+  hashtag?: string;
+}
+
+export interface DiscoveryProfile {
+  userId: string;
+  displayName: string;
+  bio: string | null;
+  role: string | null;
+  bodyType: string | null;
+  healthStatus: string | null;
+  onlineStatus: string;
+  verifiedBadgeTier: number;
+  age: number | null;
+  distanceMeters: number | null;
 }
