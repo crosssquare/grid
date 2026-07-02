@@ -122,7 +122,8 @@ export const api = {
     form.append("file", file);
     form.append("mediaType", mediaType);
     return request<MediaItem>("/media", { method: "POST", body: form });
-  }
+  },
+  setProfilePhoto: (mediaId: string) => request(`/media/${mediaId}/profile-photo`, { method: "PUT" })
 };
 
 export interface Profile {
@@ -141,6 +142,7 @@ export interface Profile {
   contactInfo: string | null;
   locationShared: boolean;
   hashtags: string[];
+  profilePhotoStorageKey: string | null;
 }
 
 export interface MediaItem {
@@ -190,6 +192,7 @@ export interface DiscoveryProfile {
   verifiedBadgeTier: number;
   age: number | null;
   distanceMeters: number | null;
+  profilePhotoStorageKey: string | null;
   isSelf: boolean;
 }
 

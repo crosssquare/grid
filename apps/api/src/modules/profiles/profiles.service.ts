@@ -36,7 +36,14 @@ export class ProfilesService {
     }
     const user = await this.db.query.users.findFirst({ where: eq(users.id, userId) });
     const tags = await this.getHashtags(userId);
-    return { ...profile, age: computeAge(user?.dateOfBirth ?? null), hashtags: tags };
+    const profilePhotoStorageKey = await this.getProfilePhotoStorageKey(profile.profilePhotoMediaId);
+    return { ...profile, age: computeAge(user?.dateOfBirth ?? null), hashtags: tags, profilePhotoStorageKey };
+  }
+
+  private async getProfilePhotoStorageKey(mediaId: string | null): Promise<string | null> {
+    if (!mediaId) return null;
+    const row = await this.db.query.media.findFirst({ where: eq(media.id, mediaId) });
+    return row?.storageKey ?? null;
   }
 
   async getViewed(viewerId: string, targetUserId: string) {
@@ -99,11 +106,14 @@ export class ProfilesService {
       });
     }
 
+    const profilePhotoStorageKey = await this.getProfilePhotoStorageKey(profile.profilePhotoMediaId);
+
     return {
       ...profile,
       age: computeAge(user?.dateOfBirth ?? null),
       memberSince: user?.createdAt ?? null,
       hashtags: tags,
+      profilePhotoStorageKey,
       gallery: galleryRows.map((r) => ({
         id: r.id,
         mediaType: r.mediaType,
@@ -145,7 +155,8 @@ export class ProfilesService {
 
     const user = await this.db.query.users.findFirst({ where: eq(users.id, userId) });
     const tags = await this.getHashtags(userId);
-    return { ...profile, age: computeAge(user?.dateOfBirth ?? null), hashtags: tags };
+    const profilePhotoStorageKey = await this.getProfilePhotoStorageKey(profile.profilePhotoMediaId);
+    return { ...profile, age: computeAge(user?.dateOfBirth ?? null), hashtags: tags, profilePhotoStorageKey };
   }
 
   private async getHashtags(userId: string): Promise<string[]> {

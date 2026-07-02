@@ -90,6 +90,7 @@ export const profiles = pgTable("profiles", {
   onlineStatus: text("online_status").notNull().default("offline"),
   lastActiveAt: timestamp("last_active_at", { withTimezone: true }),
   verifiedBadgeTier: smallint("verified_badge_tier").notNull().default(0),
+  profilePhotoMediaId: uuid("profile_photo_media_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
 });

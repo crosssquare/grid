@@ -1,10 +1,10 @@
-import { Inject, Injectable, ServiceUnavailableException } from "@nestjs/common";
+import { Inject, Injectable, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { randomUUID } from "node:crypto";
 import { and, desc, eq } from "drizzle-orm";
 import { DRIZZLE_DB, DrizzleDb } from "../../db/db.module";
-import { media } from "../../db/schema";
+import { media, profiles } from "../../db/schema";
 import { HashScanner, NoOpHashScanner } from "./hash-scanner";
 
 @Injectable()
@@ -86,5 +86,14 @@ export class MediaService {
       .from(media)
       .where(and(eq(media.userId, userId), eq(media.visibility, "public"), eq(media.moderationStatus, "approved")))
       .orderBy(desc(media.createdAt));
+  }
+
+  async setProfilePhoto(userId: string, mediaId: string) {
+    const row = await this.db.query.media.findFirst({ where: and(eq(media.id, mediaId), eq(media.userId, userId)) });
+    if (!row || row.mediaType !== "photo") {
+      throw new NotFoundException("Photo not found");
+    }
+    await this.db.update(profiles).set({ profilePhotoMediaId: mediaId }).where(eq(profiles.userId, userId));
+    return { profilePhotoMediaId: mediaId };
   }
 }

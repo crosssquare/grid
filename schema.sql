@@ -112,6 +112,7 @@ CREATE TABLE profiles (
     online_status       TEXT NOT NULL DEFAULT 'offline',
     last_active_at      TIMESTAMPTZ,   -- powers "last active" display; member-since comes from users.created_at
     verified_badge_tier SMALLINT NOT NULL DEFAULT 0,     -- 0 none / 1 photo / 2 peer-verified
+    profile_photo_media_id UUID, -- user-selected primary photo (FK to media.id added below, media is defined later)
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -145,6 +146,9 @@ CREATE TABLE media (
 );
 -- Hard constraint at application layer: media.visibility can never resolve to 'public'
 -- unless moderation_status = 'approved' AND (is_explicit = false OR viewer has passed age_verifications).
+
+ALTER TABLE profiles ADD CONSTRAINT profiles_profile_photo_media_id_fkey
+    FOREIGN KEY (profile_photo_media_id) REFERENCES media(id) ON DELETE SET NULL;
 
 -- ---------- Social Graph ----------
 CREATE TABLE favorites (

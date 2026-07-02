@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, ApiError, DiscoveryParams, DiscoveryProfile, Profile } from "./api";
+import { api, ApiError, DiscoveryParams, DiscoveryProfile, getMediaUrl, Profile } from "./api";
 
 const ROLES = ["top", "more_top", "vers", "bottom", "more_bottom"];
 const BODY_TYPES = ["slim", "athletic", "stocky", "muscular", "average"];
@@ -157,6 +157,15 @@ export function DiscoveryGrid({
             className={`rounded-lg bg-slate-900 p-3 space-y-1 ${p.isSelf ? "ring-1 ring-indigo-500" : ""}`}
           >
             <button onClick={() => onViewProfile(p.userId)} className="block w-full text-left">
+              {p.profilePhotoStorageKey ? (
+                <img
+                  src={getMediaUrl(p.profilePhotoStorageKey)}
+                  alt=""
+                  className="aspect-square w-full rounded-md bg-slate-800 object-cover mb-1"
+                />
+              ) : (
+                <div className="aspect-square w-full rounded-md bg-slate-800 mb-1" />
+              )}
               <div className="flex items-center justify-between">
                 <p className="font-medium truncate">{p.displayName}</p>
                 {p.onlineStatus === "online" && <span className="h-2 w-2 rounded-full bg-emerald-400" />}

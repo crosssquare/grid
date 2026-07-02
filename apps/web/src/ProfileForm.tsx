@@ -34,6 +34,7 @@ export function ProfileForm({ onLogout }: { onLogout: () => void }) {
   const [saved, setSaved] = useState(false);
   const [myMedia, setMyMedia] = useState<MediaItem[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [settingPhotoId, setSettingPhotoId] = useState<string | null>(null);
 
   function loadMedia() {
     api
@@ -67,6 +68,20 @@ export function ProfileForm({ onLogout }: { onLogout: () => void }) {
       setError(err instanceof ApiError ? err.message : "Upload failed");
     } finally {
       setUploading(false);
+    }
+  }
+
+  async function setAsProfilePhoto(mediaId: string) {
+    setSettingPhotoId(mediaId);
+    setError(null);
+    try {
+      await api.setProfilePhoto(mediaId);
+      const storageKey = myMedia.find((m) => m.id === mediaId)?.storageKey ?? null;
+      setProfile((p) => ({ ...p, profilePhotoStorageKey: storageKey }));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Couldn't set profile photo");
+    } finally {
+      setSettingPhotoId(null);
     }
   }
 
@@ -298,25 +313,43 @@ export function ProfileForm({ onLogout }: { onLogout: () => void }) {
           <span className="text-sm font-medium text-slate-300">Photos</span>
           {myMedia.length > 0 && (
             <div className="grid grid-cols-4 gap-2">
-              {myMedia.map((m) =>
-                m.mediaType === "photo" ? (
-                  <img
-                    key={m.id}
-                    src={getMediaUrl(m.storageKey)}
-                    alt=""
-                    title={m.moderationStatus}
-                    className="aspect-square rounded-md bg-slate-800 object-cover"
-                  />
-                ) : (
-                  <div
-                    key={m.id}
-                    className="aspect-square rounded-md bg-slate-800 flex items-center justify-center text-xs text-slate-500"
-                    title={m.moderationStatus}
-                  >
-                    🎬
+              {myMedia.map((m) => {
+                const isProfilePhoto = m.storageKey === profile.profilePhotoStorageKey;
+                return (
+                  <div key={m.id} className="space-y-1">
+                    {m.mediaType === "photo" ? (
+                      <img
+                        src={getMediaUrl(m.storageKey)}
+                        alt=""
+                        title={m.moderationStatus}
+                        className={`aspect-square w-full rounded-md bg-slate-800 object-cover ${
+                          isProfilePhoto ? "ring-2 ring-indigo-500" : ""
+                        }`}
+                      />
+                    ) : (
+                      <div
+                        className="aspect-square rounded-md bg-slate-800 flex items-center justify-center text-xs text-slate-500"
+                        title={m.moderationStatus}
+                      >
+                        🎬
+                      </div>
+                    )}
+                    {m.mediaType === "photo" &&
+                      (isProfilePhoto ? (
+                        <p className="text-center text-[10px] text-indigo-400">Profile photo</p>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setAsProfilePhoto(m.id)}
+                          disabled={settingPhotoId === m.id}
+                          className="w-full text-center text-[10px] text-slate-400 underline disabled:opacity-50"
+                        >
+                          {settingPhotoId === m.id ? "Setting…" : "Set as profile photo"}
+                        </button>
+                      ))}
                   </div>
-                )
-              )}
+                );
+              })}
             </div>
           )}
           <label className="block w-full cursor-pointer rounded-md bg-slate-800 py-1.5 text-center text-sm">

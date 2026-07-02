@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Put,
   Get,
   Param,
   ParseUUIDPipe,
@@ -44,5 +45,10 @@ export class MediaController {
   @Get("user/:userId")
   listForUser(@Param("userId", ParseUUIDPipe) userId: string) {
     return this.media.listForUser(userId);
+  }
+
+  @Put(":id/profile-photo")
+  setProfilePhoto(@CurrentUser() userId: string, @Param("id", ParseUUIDPipe) id: string) {
+    return this.media.setProfilePhoto(userId, id);
   }
 }
