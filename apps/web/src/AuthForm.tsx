@@ -44,6 +44,7 @@ export function AuthForm({ onAuthenticated }: { onAuthenticated: () => void }) {
         mode === "signup" ? await api.signup(email, password, dateOfBirth, country) : await api.login(email, password);
       localStorage.setItem("accessToken", result.accessToken);
       localStorage.setItem("refreshToken", result.refreshToken);
+      localStorage.setItem("userId", result.userId);
       onAuthenticated();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong");

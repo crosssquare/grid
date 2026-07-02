@@ -8,6 +8,8 @@ import { AuthModule } from "./modules/auth/auth.module";
 import { ProfilesModule } from "./modules/profiles/profiles.module";
 import { MediaModule } from "./modules/media/media.module";
 import { DiscoveryModule } from "./modules/discovery/discovery.module";
+import { TapsModule } from "./modules/taps/taps.module";
+import { ChatModule } from "./modules/chat/chat.module";
 
 @Module({
   imports: [
@@ -21,7 +23,9 @@ import { DiscoveryModule } from "./modules/discovery/discovery.module";
     AuthModule,
     ProfilesModule,
     MediaModule,
-    DiscoveryModule
+    DiscoveryModule,
+    TapsModule,
+    ChatModule
   ]
 })
 export class AppModule {}

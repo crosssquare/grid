@@ -85,6 +85,7 @@ export function ProfileForm({ onLogout }: { onLogout: () => void }) {
   function logout() {
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
+    localStorage.removeItem("userId");
     onLogout();
   }
 

@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+export const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 
 export class ApiError extends Error {
   constructor(
@@ -54,6 +54,7 @@ async function request<T>(path: string, options: RequestInit = {}, isRetry = fal
     }
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
+    localStorage.removeItem("userId");
     window.dispatchEvent(new Event("grid:session-expired"));
   }
 
@@ -89,7 +90,16 @@ export const api = {
     }
     const qs = search.toString();
     return request<DiscoveryProfile[]>(`/discovery${qs ? `?${qs}` : ""}`);
-  }
+  },
+  sendTap: (recipientId: string) => request<Tap>("/taps", { method: "POST", body: JSON.stringify({ recipientId }) }),
+  tapsReceived: () => request<Tap[]>("/taps/received"),
+  tapsSent: () => request<Tap[]>("/taps/sent"),
+  startConversation: (otherUserId: string) =>
+    request<Conversation>("/conversations", { method: "POST", body: JSON.stringify({ otherUserId }) }),
+  listConversations: () => request<ConversationSummary[]>("/conversations"),
+  getMessages: (conversationId: string) => request<Message[]>(`/conversations/${conversationId}/messages`),
+  sendMessage: (conversationId: string, body: string) =>
+    request<Message>(`/conversations/${conversationId}/messages`, { method: "POST", body: JSON.stringify({ body }) })
 };
 
 export interface Profile {
@@ -130,4 +140,41 @@ export interface DiscoveryProfile {
   age: number | null;
   distanceMeters: number | null;
   isSelf: boolean;
+}
+
+export interface Tap {
+  id: string;
+  createdAt: string;
+  senderId?: string;
+  recipientId?: string;
+  displayName: string;
+}
+
+export interface Conversation {
+  id: string;
+  userAId: string;
+  userBId: string;
+  status: string;
+  lastMessageAt: string;
+  createdAt: string;
+}
+
+export interface ConversationSummary {
+  id: string;
+  status: string;
+  lastMessageAt: string;
+  otherUserId: string;
+  otherDisplayName: string;
+  otherOnlineStatus: string;
+  lastMessageBody: string | null;
+}
+
+export interface Message {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  body: string | null;
+  mediaId: string | null;
+  readAt: string | null;
+  createdAt: string;
 }

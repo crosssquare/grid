@@ -59,11 +59,22 @@ function LocationStatus() {
   );
 }
 
-export function DiscoveryGrid() {
+export function DiscoveryGrid({ onMessage }: { onMessage: (conversationId: string, displayName: string) => void }) {
   const [profiles, setProfiles] = useState<DiscoveryProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<DiscoveryParams>({ sort: "distance" });
+  const [tappedIds, setTappedIds] = useState<Set<string>>(new Set());
+
+  async function tap(userId: string) {
+    setTappedIds((prev) => new Set(prev).add(userId));
+    await api.sendTap(userId).catch(() => undefined);
+  }
+
+  async function message(userId: string, displayName: string) {
+    const conversation = await api.startConversation(userId).catch(() => null);
+    if (conversation) onMessage(conversation.id, displayName);
+  }
 
   useEffect(() => {
     setLoading(true);
@@ -149,6 +160,23 @@ export function DiscoveryGrid() {
                 .join(" · ")}
             </p>
             {p.verifiedBadgeTier > 0 && <p className="text-xs text-indigo-400">Verified</p>}
+            {!p.isSelf && (
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={() => tap(p.userId)}
+                  disabled={tappedIds.has(p.userId)}
+                  className="flex-1 rounded-md bg-slate-800 text-xs disabled:opacity-50"
+                >
+                  {tappedIds.has(p.userId) ? "Tapped" : "Tap"}
+                </button>
+                <button
+                  onClick={() => message(p.userId, p.displayName)}
+                  className="flex-1 rounded-md bg-indigo-600 text-xs"
+                >
+                  Message
+                </button>
+              </div>
+            )}
           </div>
         ))}
       </div>
