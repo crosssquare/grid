@@ -88,7 +88,7 @@ export const api = {
   login: (email: string, password: string) =>
     request<AuthResponse>("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
   getMyProfile: () => request<Profile>("/profiles/me"),
-  saveMyProfile: (dto: Partial<Profile> & { latitude?: number; longitude?: number }) =>
+  saveMyProfile: (dto: Partial<Profile>) =>
     request<Profile>("/profiles/me", { method: "PUT", body: JSON.stringify(dto) }),
   discover: (params: DiscoveryParams) => {
     const search = new URLSearchParams();
@@ -151,6 +151,8 @@ export interface Profile {
   locationShared: boolean;
   hashtags: string[];
   profilePhotoStorageKey: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface MediaItem {
@@ -177,6 +179,8 @@ export interface ViewedProfile extends Profile {
   isFavorited: boolean;
   canReview: boolean;
   myReviewStatus: string | null;
+  tapCount: number;
+  iTapped: boolean;
   isSelf: boolean;
   onlineStatus: string;
   verifiedBadgeTier: number;

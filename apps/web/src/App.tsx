@@ -40,7 +40,7 @@ export default function App() {
 
   return (
     <>
-      {view === "grid" && <DiscoveryGrid onMessage={openChat} onViewProfile={setViewedUserId} />}
+      {view === "grid" && <DiscoveryGrid onViewProfile={setViewedUserId} />}
       {view === "chat" && (
         <ChatView openConversationId={openConversation} onConsumeOpenConversation={() => setOpenConversation(null)} />
       )}

@@ -10,9 +10,26 @@ function formatDistance(meters: number | null): string | null {
   return `${(meters / 1000).toFixed(1)}km`;
 }
 
+async function reverseGeocode(latitude: number, longitude: number): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10`,
+      { headers: { Accept: "application/json" } }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const a = data.address ?? {};
+    const place = a.city ?? a.town ?? a.village ?? a.county ?? null;
+    return place ? [place, a.country_code?.toUpperCase()].filter(Boolean).join(", ") : null;
+  } catch {
+    return null;
+  }
+}
+
 function LocationStatus() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [requesting, setRequesting] = useState(false);
+  const [placeName, setPlaceName] = useState<string | null>(null);
 
   useEffect(() => {
     api
@@ -20,6 +37,14 @@ function LocationStatus() {
       .then(setProfile)
       .catch(() => setProfile(null));
   }, []);
+
+  useEffect(() => {
+    if (profile?.locationShared && profile.latitude != null && profile.longitude != null) {
+      reverseGeocode(profile.latitude, profile.longitude).then(setPlaceName);
+    } else {
+      setPlaceName(null);
+    }
+  }, [profile?.locationShared, profile?.latitude, profile?.longitude]);
 
   function shareLocation() {
     if (!profile) return; // no profile created yet — nothing to attach a location to
@@ -49,38 +74,22 @@ function LocationStatus() {
     <button
       onClick={shareLocation}
       disabled={requesting}
-      className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs ${
-        profile.locationShared ? "bg-emerald-900 text-emerald-300" : "bg-slate-900 text-slate-400"
-      }`}
+      className={`text-xs ${profile.locationShared ? "text-emerald-400" : "text-slate-500"}`}
     >
-      <span className={`h-1.5 w-1.5 rounded-full ${profile.locationShared ? "bg-emerald-400" : "bg-slate-500"}`} />
-      {requesting ? "Locating…" : profile.locationShared ? "Location on" : "Location off"}
+      {requesting
+        ? "Locating…"
+        : profile.locationShared
+          ? (placeName ?? "Location on")
+          : "Location off"}
     </button>
   );
 }
 
-export function DiscoveryGrid({
-  onMessage,
-  onViewProfile
-}: {
-  onMessage: (conversationId: string, displayName: string) => void;
-  onViewProfile: (userId: string) => void;
-}) {
+export function DiscoveryGrid({ onViewProfile }: { onViewProfile: (userId: string) => void }) {
   const [profiles, setProfiles] = useState<DiscoveryProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<DiscoveryParams>({ sort: "distance" });
-  const [tappedIds, setTappedIds] = useState<Set<string>>(new Set());
-
-  async function tap(userId: string) {
-    setTappedIds((prev) => new Set(prev).add(userId));
-    await api.sendTap(userId).catch(() => undefined);
-  }
-
-  async function message(userId: string, displayName: string) {
-    const conversation = await api.startConversation(userId).catch(() => null);
-    if (conversation) onMessage(conversation.id, displayName);
-  }
 
   useEffect(() => {
     setLoading(true);
@@ -152,49 +161,31 @@ export function DiscoveryGrid({
 
       <div className="grid grid-cols-2 gap-3">
         {profiles.map((p) => (
-          <div
+          <button
             key={p.userId}
-            className={`rounded-lg bg-slate-900 p-3 space-y-1 ${p.isSelf ? "ring-1 ring-indigo-500" : ""}`}
+            onClick={() => onViewProfile(p.userId)}
+            className={`block rounded-lg bg-slate-900 p-3 space-y-1 text-left ${p.isSelf ? "ring-1 ring-indigo-500" : ""}`}
           >
-            <button onClick={() => onViewProfile(p.userId)} className="block w-full text-left">
-              {p.profilePhotoStorageKey ? (
-                <img
-                  src={getMediaUrl(p.profilePhotoStorageKey)}
-                  alt=""
-                  className="aspect-square w-full rounded-md bg-slate-800 object-cover mb-1"
-                />
-              ) : (
-                <div className="aspect-square w-full rounded-md bg-slate-800 mb-1" />
-              )}
-              <div className="flex items-center justify-between">
-                <p className="font-medium truncate">{p.displayName}</p>
-                {p.onlineStatus === "online" && <span className="h-2 w-2 rounded-full bg-emerald-400" />}
-              </div>
-              <p className="text-xs text-slate-400">
-                {[p.isSelf ? "You" : null, p.age, p.role?.replace("_", " "), formatDistance(p.distanceMeters)]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </p>
-              {p.verifiedBadgeTier > 0 && <p className="text-xs text-indigo-400">Verified</p>}
-            </button>
-            {!p.isSelf && (
-              <div className="flex gap-2 pt-1">
-                <button
-                  onClick={() => tap(p.userId)}
-                  disabled={tappedIds.has(p.userId)}
-                  className="flex-1 rounded-md bg-slate-800 text-xs disabled:opacity-50"
-                >
-                  {tappedIds.has(p.userId) ? "Tapped" : "Tap"}
-                </button>
-                <button
-                  onClick={() => message(p.userId, p.displayName)}
-                  className="flex-1 rounded-md bg-indigo-600 text-xs"
-                >
-                  Message
-                </button>
-              </div>
+            {p.profilePhotoStorageKey ? (
+              <img
+                src={getMediaUrl(p.profilePhotoStorageKey)}
+                alt=""
+                className="aspect-square w-full rounded-md bg-slate-800 object-cover mb-1"
+              />
+            ) : (
+              <div className="aspect-square w-full rounded-md bg-slate-800 mb-1" />
             )}
-          </div>
+            <div className="flex items-center justify-between">
+              <p className="font-medium truncate">{p.displayName}</p>
+              {p.onlineStatus === "online" && <span className="h-2 w-2 rounded-full bg-emerald-400" />}
+            </div>
+            <p className="text-xs text-slate-400">
+              {[p.isSelf ? "You" : null, p.age, p.role?.replace("_", " "), formatDistance(p.distanceMeters)]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+            {p.verifiedBadgeTier > 0 && <p className="text-xs text-indigo-400">Verified</p>}
+          </button>
         ))}
       </div>
     </div>

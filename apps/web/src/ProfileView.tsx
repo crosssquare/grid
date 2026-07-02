@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, getMediaUrl, ViewedProfile } from "./api";
+import { FlameIcon } from "./FlameIcon";
+import { Lightbox } from "./Lightbox";
 
 const REPORT_REASONS = [
   { value: "fake_profile", label: "Fake profile" },
@@ -40,7 +42,8 @@ export function ProfileView({
   const [profile, setProfile] = useState<ViewedProfile | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [tapped, setTapped] = useState(false);
+  const [metConfirmed, setMetConfirmed] = useState(false);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [showReport, setShowReport] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [reviewRating, setReviewRating] = useState(0);
@@ -58,7 +61,8 @@ export function ProfileView({
   useEffect(load, [userId]);
 
   async function tap() {
-    setTapped(true);
+    if (!profile || profile.iTapped) return;
+    setProfile({ ...profile, iTapped: true, tapCount: profile.tapCount + 1 });
     await api.sendTap(userId).catch(() => undefined);
   }
 
@@ -113,6 +117,7 @@ export function ProfileView({
     setBusy(true);
     try {
       await api.confirmMeet(userId);
+      setMetConfirmed(true);
       setNotice("Meet confirmed — once they confirm too, you can leave a review.");
       load();
     } catch (err) {
@@ -172,11 +177,30 @@ export function ProfileView({
       </button>
 
       {profile.profilePhotoStorageKey && (
-        <img
-          src={getMediaUrl(profile.profilePhotoStorageKey)}
-          alt=""
-          className="w-full aspect-square rounded-lg bg-slate-900 object-cover mb-4"
-        />
+        <div className="relative mb-4">
+          <img
+            src={getMediaUrl(profile.profilePhotoStorageKey)}
+            alt=""
+            onClick={() => setLightboxSrc(getMediaUrl(profile.profilePhotoStorageKey!))}
+            className="w-full aspect-square rounded-lg bg-slate-900 object-cover"
+          />
+          {!profile.isSelf && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                tap();
+              }}
+              disabled={profile.iTapped}
+              className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-full bg-black/50 px-3 py-2 backdrop-blur-sm"
+            >
+              <FlameIcon
+                active={profile.iTapped}
+                className={`h-6 w-6 ${profile.iTapped ? "" : "text-slate-200"}`}
+              />
+              <span className="text-sm font-medium text-slate-100">{profile.tapCount}</span>
+            </button>
+          )}
+        </div>
       )}
 
       <div className="mb-4">
@@ -200,7 +224,8 @@ export function ProfileView({
                   key={m.id}
                   src={getMediaUrl(m.storageKey)}
                   alt=""
-                  className="aspect-square rounded-md bg-slate-900 object-cover"
+                  onClick={() => setLightboxSrc(getMediaUrl(m.storageKey))}
+                  className="aspect-square rounded-md bg-slate-900 object-cover cursor-pointer"
                 />
               ) : (
                 <div
@@ -318,20 +343,19 @@ export function ProfileView({
 
       {!profile.isSelf && (
         <div className="space-y-2">
-          <div className="flex gap-2">
-            <button onClick={tap} disabled={tapped} className="flex-1 rounded-md bg-slate-800 disabled:opacity-50">
-              {tapped ? "Tapped" : "Tap"}
-            </button>
-            <button onClick={message} className="flex-1 rounded-md bg-indigo-600">
-              Message
-            </button>
-          </div>
+          <button onClick={message} className="w-full rounded-md bg-indigo-600 py-2.5 font-medium">
+            Message
+          </button>
           <div className="flex gap-2">
             <button onClick={toggleFavorite} disabled={busy} className="flex-1 rounded-md bg-slate-800">
               {profile.isFavorited ? "Unfavorite" : "Favorite"}
             </button>
-            <button onClick={weMet} disabled={busy} className="flex-1 rounded-md bg-slate-800">
-              We Met
+            <button
+              onClick={weMet}
+              disabled={busy || metConfirmed}
+              className="flex-1 rounded-md bg-slate-800 disabled:opacity-50"
+            >
+              {metConfirmed ? "Meet confirmed" : "We Met"}
             </button>
           </div>
           <div className="flex gap-2">
@@ -360,6 +384,8 @@ export function ProfileView({
           )}
         </div>
       )}
+
+      {lightboxSrc && <Lightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />}
     </div>
   );
 }

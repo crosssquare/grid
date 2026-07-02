@@ -10,7 +10,8 @@ import {
   reviews,
   favorites,
   blocks,
-  profileViews
+  profileViews,
+  taps
 } from "../../db/schema";
 import { UpsertProfileDto } from "./dto/upsert-profile.dto";
 import { ReviewsService } from "../reviews/reviews.service";
@@ -41,7 +42,23 @@ export class ProfilesService {
     const user = await this.db.query.users.findFirst({ where: eq(users.id, userId) });
     const tags = await this.getHashtags(userId);
     const profilePhotoStorageKey = await this.getProfilePhotoStorageKey(profile.profilePhotoMediaId);
-    return { ...profile, age: computeAge(user?.dateOfBirth ?? null), hashtags: tags, profilePhotoStorageKey };
+    const coords = await this.getCoordinates(userId);
+    return {
+      ...profile,
+      age: computeAge(user?.dateOfBirth ?? null),
+      hashtags: tags,
+      profilePhotoStorageKey,
+      ...coords
+    };
+  }
+
+  private async getCoordinates(userId: string): Promise<{ latitude: number | null; longitude: number | null }> {
+    const result = await this.db.execute<{ lat: number | null; lng: number | null }>(sql`
+      SELECT ST_Y(location::geometry) AS lat, ST_X(location::geometry) AS lng
+      FROM profiles WHERE user_id = ${userId}
+    `);
+    const row = result.rows[0];
+    return { latitude: row?.lat ?? null, longitude: row?.lng ?? null };
   }
 
   private async getProfilePhotoStorageKey(mediaId: string | null): Promise<string | null> {
@@ -98,6 +115,7 @@ export class ProfilesService {
     let isFavorited = false;
     let canReview = false;
     let myReviewStatus: string | null = null;
+    let iTapped = false;
     if (!isSelf) {
       const favorite = await this.db.query.favorites.findFirst({
         where: and(eq(favorites.userId, viewerId), eq(favorites.favoriteId, targetUserId))
@@ -107,6 +125,11 @@ export class ProfilesService {
       myReviewStatus = await this.reviewsService.myReviewStatus(viewerId, targetUserId);
       canReview = myReviewStatus === null && Boolean(await this.reviewsService.findMutualMeetConfirmation(viewerId, targetUserId));
 
+      const tap = await this.db.query.taps.findFirst({
+        where: and(eq(taps.senderId, viewerId), eq(taps.recipientId, targetUserId))
+      });
+      iTapped = Boolean(tap);
+
       const viewer = await this.db.query.profiles.findFirst({ where: eq(profiles.userId, viewerId) });
       await this.db.insert(profileViews).values({
         viewerId,
@@ -114,6 +137,11 @@ export class ProfilesService {
         visibleToViewed: viewer?.notifyOnProfileView ?? true
       });
     }
+
+    const [{ count: tapCount }] = await this.db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(taps)
+      .where(eq(taps.recipientId, targetUserId));
 
     const profilePhotoStorageKey = await this.getProfilePhotoStorageKey(profile.profilePhotoMediaId);
 
@@ -123,6 +151,8 @@ export class ProfilesService {
       memberSince: user?.createdAt ?? null,
       hashtags: tags,
       profilePhotoStorageKey,
+      tapCount,
+      iTapped,
       gallery: galleryRows.map((r) => ({
         id: r.id,
         mediaType: r.mediaType,

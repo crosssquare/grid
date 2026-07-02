@@ -24,6 +24,9 @@ export function ChatView({
   }
 
   return (
-    <ConversationList onOpen={(c: ConversationSummary) => setActive({ id: c.id, displayName: c.otherDisplayName })} />
+    <ConversationList
+      onOpen={(c: ConversationSummary) => setActive({ id: c.id, displayName: c.otherDisplayName })}
+      onOpenTap={(id, displayName) => setActive({ id, displayName })}
+    />
   );
 }

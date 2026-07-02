@@ -56,7 +56,7 @@ export function ChatThread({
   const myUserId = localStorage.getItem("userId");
 
   return (
-    <div className="flex h-screen flex-col bg-slate-950 text-slate-100">
+    <div className="flex h-screen flex-col bg-slate-950 text-slate-100 pb-16">
       <div className="flex items-center gap-3 border-b border-slate-800 px-4 py-3">
         <button onClick={onBack} className="text-slate-400">
           ← Back
@@ -81,7 +81,7 @@ export function ChatThread({
 
       {error && <p className="px-4 text-sm text-red-400">{error}</p>}
 
-      <form onSubmit={handleSend} className="flex gap-2 border-t border-slate-800 p-3 pb-6">
+      <form onSubmit={handleSend} className="flex gap-2 border-t border-slate-800 p-3">
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}

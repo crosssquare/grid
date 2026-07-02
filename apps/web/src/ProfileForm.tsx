@@ -2,6 +2,7 @@ import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import { api, ApiError, getMediaUrl, MediaItem, Profile } from "./api";
 import { Field, inputClass } from "./Field";
 import { PendingReviews } from "./PendingReviews";
+import { Lightbox } from "./Lightbox";
 
 const ROLES = ["top", "more_top", "vers", "bottom", "more_bottom"];
 const BODY_TYPES = ["slim", "athletic", "stocky", "muscular", "average"];
@@ -36,6 +37,7 @@ export function ProfileForm({ onLogout }: { onLogout: () => void }) {
   const [myMedia, setMyMedia] = useState<MediaItem[]>([]);
   const [uploading, setUploading] = useState(false);
   const [settingPhotoId, setSettingPhotoId] = useState<string | null>(null);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
   function loadMedia() {
     api
@@ -325,7 +327,8 @@ export function ProfileForm({ onLogout }: { onLogout: () => void }) {
                         src={getMediaUrl(m.storageKey)}
                         alt=""
                         title={m.moderationStatus}
-                        className={`aspect-square w-full rounded-md bg-slate-800 object-cover ${
+                        onClick={() => setLightboxSrc(getMediaUrl(m.storageKey))}
+                        className={`aspect-square w-full rounded-md bg-slate-800 object-cover cursor-pointer ${
                           isProfilePhoto ? "ring-2 ring-indigo-500" : ""
                         }`}
                       />
@@ -410,6 +413,7 @@ export function ProfileForm({ onLogout }: { onLogout: () => void }) {
           {status === "saving" ? "Saving…" : "Save profile"}
         </button>
       </form>
+      {lightboxSrc && <Lightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />}
     </div>
   );
 }
