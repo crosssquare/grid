@@ -4,6 +4,9 @@ import { validateEnv } from "./config/env.validation";
 import { DbModule } from "./db/db.module";
 import { RedisModule } from "./redis/redis.module";
 import { HealthModule } from "./health/health.module";
+import { AuthModule } from "./modules/auth/auth.module";
+import { ProfilesModule } from "./modules/profiles/profiles.module";
+import { MediaModule } from "./modules/media/media.module";
 
 @Module({
   imports: [
@@ -13,7 +16,10 @@ import { HealthModule } from "./health/health.module";
     }),
     DbModule,
     RedisModule,
-    HealthModule
+    HealthModule,
+    AuthModule,
+    ProfilesModule,
+    MediaModule
   ]
 })
 export class AppModule {}

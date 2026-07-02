@@ -27,12 +27,31 @@ services:
         value: stub
       - key: PORT
         value: "3000"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      # Optional — set these manually in the Render dashboard once Supabase Storage S3
+      # credentials exist, to enable photo/video upload. The app runs fine without them.
+      - key: S3_ENDPOINT
+        sync: false
+      - key: S3_REGION
+        sync: false
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
 
   - type: web
     name: grid-web
     runtime: static
     buildCommand: npm install && npm run build --workspace=packages/shared && npm run build --workspace=apps/web
     staticPublishPath: apps/web/dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://grid-api-h6xp.onrender.com
 
   - type: redis
     name: grid-redis
