@@ -217,6 +217,14 @@ export const reviewReports = pgTable("review_reports", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
 });
 
+export const feedPosts = pgTable("feed_posts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull(),
+  body: text("body"),
+  mediaId: uuid("media_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+});
+
 export const events = pgTable("events", {
   id: uuid("id").primaryKey().defaultRandom(),
   creatorId: uuid("creator_id").notNull(),

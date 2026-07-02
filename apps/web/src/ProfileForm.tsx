@@ -3,6 +3,7 @@ import { api, ApiError, getMediaUrl, MediaItem, Profile } from "./api";
 import { Field, inputClass } from "./Field";
 import { PendingReviews } from "./PendingReviews";
 import { Lightbox } from "./Lightbox";
+import { Timeline } from "./Timeline";
 
 const ROLES = ["top", "more_top", "vers", "bottom", "more_bottom"];
 const BODY_TYPES = ["slim", "athletic", "stocky", "muscular", "average"];
@@ -363,6 +364,8 @@ export function ProfileForm({ onLogout }: { onLogout: () => void }) {
             <input type="file" accept="image/*" onChange={handleFileSelected} disabled={uploading} className="hidden" />
           </label>
         </div>
+
+        {profile.userId && <Timeline userId={profile.userId} isSelf={true} />}
 
         <Field id="hashtags" label="Hashtags (comma-separated)">
           <input

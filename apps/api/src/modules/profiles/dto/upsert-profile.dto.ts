@@ -6,6 +6,7 @@ const SIZES = ["s", "m", "l", "xl", "xxl"] as const;
 const STATUSES = ["positive", "negative", "prep", "tasp", "unknown"] as const;
 const DIRTY_PREFERENCES = ["dirty", "not_dirty", "ws_only"] as const;
 const FISTING_PREFERENCES = ["ff_active", "ff_passive", "ff_vers", "no_ff"] as const;
+const VISIBILITIES = ["public", "registered_only", "hidden"] as const;
 
 export class UpsertProfileDto {
   @IsString()
@@ -50,6 +51,15 @@ export class UpsertProfileDto {
   @IsOptional()
   @IsIn(FISTING_PREFERENCES)
   fistingPreference?: (typeof FISTING_PREFERENCES)[number];
+
+  @IsOptional()
+  @IsString()
+  @Length(0, 200)
+  contactInfo?: string;
+
+  @IsOptional()
+  @IsIn(VISIBILITIES)
+  visibility?: (typeof VISIBILITIES)[number];
 
   @IsOptional()
   @IsBoolean()

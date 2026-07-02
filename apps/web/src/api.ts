@@ -131,7 +131,11 @@ export const api = {
   decideReview: (reviewId: string, decision: "approved" | "rejected", visibility?: "public" | "private") =>
     request(`/reviews/${reviewId}/decision`, { method: "PUT", body: JSON.stringify({ decision, visibility }) }),
   reportReview: (reviewId: string, reasonCode: string) =>
-    request(`/reviews/${reviewId}/report`, { method: "POST", body: JSON.stringify({ reasonCode }) })
+    request(`/reviews/${reviewId}/report`, { method: "POST", body: JSON.stringify({ reasonCode }) }),
+  createPost: (body: string) => request<Post>("/posts", { method: "POST", body: JSON.stringify({ body }) }),
+  listMyPosts: () => request<Post[]>("/posts/mine"),
+  listUserPosts: (userId: string) => request<Post[]>(`/posts/user/${userId}`),
+  deletePost: (postId: string) => request(`/posts/${postId}`, { method: "DELETE" })
 };
 
 export interface Profile {
@@ -206,6 +210,14 @@ export interface PendingReview {
   createdAt: string;
   reviewerId: string;
   reviewerDisplayName: string;
+}
+
+export interface Post {
+  id: string;
+  userId: string;
+  body: string | null;
+  mediaId: string | null;
+  createdAt: string;
 }
 
 export interface DiscoveryParams {

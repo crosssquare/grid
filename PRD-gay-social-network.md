@@ -61,6 +61,11 @@ Root (Bottom Tab Bar — 5 tabs)
 │       │   (each field only shown if the profile owner set it to public)
 │       ├── Verification badges (photo-verified, peer-verified)
 │       ├── "Member since" / "last active"
+│       ├── Timeline — this user's own public posts/activity, reverse-
+│       │   chronological (same posts that surface in the aggregate Newsfeed,
+│       │   but anchored to their profile as a lasting history, not just a
+│       │   scrolling stream); hidden posts and posts from a hidden profile
+│       │   don't appear here even if they were once visible in the feed
 │       ├── Public reviews (approved + set to public by the reviewee only)
 │       ├── Actions: Tap · Message · Favorite · Report · Block · "We Met"
 │       └── Respects viewer's incognito setting (§5.2) — may or may not notify
@@ -141,7 +146,8 @@ Legend: **[MVP]** ship in v1 · **[V1.1]** fast-follow · **[V2]** later
 ### 5.5 Social / Community
 | Feature | Source | Priority |
 |---|---|---|
-| Newsfeed — public activity, photo posts, check-ins | FabGuys | V1.1 |
+| Newsfeed — aggregate public activity, photo posts, check-ins | FabGuys | V1.1 |
+| Personal Timeline — the same posts, anchored permanently to the poster's own profile as a lasting history (not just a scrolling stream); respects hidden-profile and hidden-post settings independently of the aggregate feed | FabGuys | V1.1 |
 | Viewed Me | FabGuys | V1.1 |
 | Want to Meet Today board | FabGuys | MVP |
 | Events calendar (buddy-created group events) | Buddy | MVP |
@@ -297,17 +303,23 @@ To seed the community before the platform has enough density for people to actua
 
 ## 10. Build Phasing
 
-**Phase 0 — Internal Alpha (you + one collaborator only, target: 6–8 weeks)**
-Build and hone the actual product — profile creation, nearby grid + filters, hashtag search, taps + messaging, favorites, events & classifieds, want-to-meet-today, Meet Reviews, block/report — with **age verification and payment entirely stubbed**. No real vendor integration, no real money moving. Age verification is a manual admin flag (`age_verifications.result = 'pass'` set directly, no vendor call); PRO is a manual admin flag on the account, not a real subscription. Goal: validate the product feels right before spending any integration effort or vendor cost on compliance-heavy pieces. **CSAM hash-scanning is the one exception** — keep the upload pipeline's hash-check *hook* in place from day one (even pointing at a stub/no-op scanner), so Phase 1 is plugging in a real vendor rather than retrofitting the architecture. It costs nothing to leave the seam in now and is expensive to bolt on later.
+**A note on timeline:** with AI-assisted development, coding speed isn't really the bottleneck here — two other things are, and they don't compress just because the code gets written fast:
+- **Your own review/testing cycles.** Someone still has to click through what's built, catch what's wrong, decide what's next. Inherently sequential, scales with your attention, not with tokens.
+- **External vendor approval time (Phase 1 specifically).** Persona and Stripe both run underwriting/KYB checks before an account goes fully live — for an adult-content platform, expect this to take anywhere from a few days to a couple of weeks, entirely outside your control and not shortened by build speed. Start these applications as early as possible, ideally in parallel with the tail end of Phase 0, rather than after Phase 0 finishes — that's the single biggest thing you can do to compress the real calendar time to launch.
 
-**Phase 1 — Pre-Launch Delivery (target: 3–4 weeks)**
-This is the hard gate before any real member joins. Wire in: the real accredited age-verification vendor (Persona, given its free tier at MVP volume — see cost discussion), the real payment processor (Stripe, structured per §6 so it's swappable later), the real CSAM hash-scanning vendor into the existing hook, the public marketing/landing site (§5.10), finalized legal pages live and versioned, cookie consent actually gating analytics scripts, and the moderation queue operational with a real reviewer (you) able to action reports. Nothing in this phase is optional or partial — it's the difference between a demo and a legally operable product.
+Phases below are ordered by dependency, not by fixed calendar duration.
+
+**Phase 0 — Internal Alpha (you + one collaborator only)**
+Build and hone the actual product — profile creation, nearby grid + filters, hashtag search, taps + messaging, favorites, events & classifieds, want-to-meet-today, Meet Reviews, block/report — with **age verification and payment entirely stubbed**. No real vendor integration, no real money moving. Age verification is a manual admin flag (`age_verifications.result = 'pass'` set directly, no vendor call); PRO is a manual admin flag on the account, not a real subscription. Goal: validate the product feels right before spending any integration effort or vendor cost on compliance-heavy pieces. **CSAM hash-scanning is the one exception** — keep the upload pipeline's hash-check *hook* in place from day one (even pointing at a stub/no-op scanner), so Phase 1 is plugging in a real vendor rather than retrofitting the architecture. It costs nothing to leave the seam in now and is expensive to bolt on later. **Exit criteria:** you and your collaborator can use the product end-to-end and it feels right — not a date.
+
+**Phase 1 — Pre-Launch Delivery**
+This is the hard gate before any real member joins. Wire in: the real accredited age-verification vendor (Persona, given its free tier at MVP volume — see cost discussion), the real payment processor (Stripe, structured per §6 so it's swappable later), the real CSAM hash-scanning vendor into the existing hook, the public marketing/landing site (§5.10), finalized legal pages live and versioned, cookie consent actually gating analytics scripts, and the moderation queue operational with a real reviewer (you) able to action reports. Nothing in this phase is optional or partial — it's the difference between a demo and a legally operable product. **Start vendor applications (Persona, Stripe/payment processor) as early as possible — ideally before this phase formally begins — since their approval timelines run in parallel with your build time, not after it.** **Exit criteria:** real vendor integrations live and tested, legal pages published, moderation queue operational — gated by vendor approval, not build effort.
 
 **Phase 2 — Public MVP Launch**
-Open signups, founding member program active, EN + DE locales, UK + DE markets.
+Open signups, founding member program active, EN + DE locales, UK + DE markets. Triggered by Phase 1's exit criteria being met, not a date.
 
-**Phase 3 — V1.1 (target: +6–8 weeks)**
-Newsfeed, Viewed Me, peer verification (message-based vouching), venue guide, additional locales, saved filter presets, username changes, photo verification moving from manual to AI-assisted review as volume grows.
+**Phase 3 — V1.1**
+Newsfeed, Viewed Me, peer verification (message-based vouching), venue guide, additional locales, saved filter presets, username changes, photo verification moving from manual to AI-assisted review as volume grows. Triggered by your own judgment that the MVP is stable and worth extending, not a fixed post-launch date.
 
 **Phase 4 — V2**
 Multi-country drill-down browsing, profile boosts, deeper localization.
