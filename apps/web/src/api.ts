@@ -134,6 +134,8 @@ export const api = {
     request(`/reviews/${reviewId}/report`, { method: "POST", body: JSON.stringify({ reasonCode }) }),
   createPost: (body: string) => request<Post>("/posts", { method: "POST", body: JSON.stringify({ body }) }),
   listFeed: () => request<FeedPost[]>("/posts"),
+  updatePost: (postId: string, body: string) =>
+    request<Post>(`/posts/${postId}`, { method: "PUT", body: JSON.stringify({ body }) }),
   deletePost: (postId: string) => request(`/posts/${postId}`, { method: "DELETE" })
 };
 
@@ -224,6 +226,8 @@ export interface FeedPost {
   userId: string;
   body: string | null;
   mediaId: string | null;
+  mediaStorageKey: string | null;
+  mediaType: string | null;
   createdAt: string;
   displayName: string;
   profilePhotoStorageKey: string | null;

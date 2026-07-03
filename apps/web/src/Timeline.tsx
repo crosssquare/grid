@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, FeedPost, getMediaUrl } from "./api";
+import { Lightbox } from "./Lightbox";
 
 export function Timeline({ onViewProfile }: { onViewProfile: (userId: string) => void }) {
   const [posts, setPosts] = useState<FeedPost[]>([]);
@@ -7,6 +8,10 @@ export function Timeline({ onViewProfile }: { onViewProfile: (userId: string) =>
   const [posting, setPosting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [captionDraft, setCaptionDraft] = useState("");
+  const [savingCaption, setSavingCaption] = useState(false);
 
   function load() {
     api
@@ -36,6 +41,24 @@ export function Timeline({ onViewProfile }: { onViewProfile: (userId: string) =>
   async function remove(postId: string) {
     setPosts((prev) => prev.filter((p) => p.id !== postId));
     await api.deletePost(postId).catch(() => undefined);
+  }
+
+  function startEditing(post: FeedPost) {
+    setEditingId(post.id);
+    setCaptionDraft(post.body ?? "");
+  }
+
+  async function saveCaption(postId: string) {
+    setSavingCaption(true);
+    try {
+      await api.updatePost(postId, captionDraft.trim());
+      setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, body: captionDraft.trim() || null } : p)));
+      setEditingId(null);
+    } catch {
+      // no-op — user can retry, edit box stays open
+    } finally {
+      setSavingCaption(false);
+    }
   }
 
   return (
@@ -78,18 +101,68 @@ export function Timeline({ onViewProfile }: { onViewProfile: (userId: string) =>
               )}
               <span className="font-medium">{p.displayName}</span>
             </button>
-            {p.body && <p>{p.body}</p>}
+
+            {p.mediaStorageKey &&
+              (p.mediaType === "photo" ? (
+                <img
+                  src={getMediaUrl(p.mediaStorageKey)}
+                  alt=""
+                  onClick={() => setLightboxSrc(getMediaUrl(p.mediaStorageKey!))}
+                  className="w-full rounded-md bg-slate-800 object-cover cursor-pointer"
+                />
+              ) : (
+                <div className="aspect-square w-full rounded-md bg-slate-800 flex items-center justify-center text-2xl">
+                  🎬
+                </div>
+              ))}
+
+            {editingId === p.id ? (
+              <div className="space-y-1">
+                <textarea
+                  value={captionDraft}
+                  onChange={(e) => setCaptionDraft(e.target.value)}
+                  placeholder="Add a caption…"
+                  rows={2}
+                  className="w-full rounded-md bg-slate-800 p-2 text-sm outline-none"
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => saveCaption(p.id)}
+                    disabled={savingCaption}
+                    className="flex-1 rounded-md bg-indigo-600 py-1.5 text-xs disabled:opacity-50"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={() => setEditingId(null)}
+                    className="flex-1 rounded-md bg-slate-800 py-1.5 text-xs"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              p.body && <p>{p.body}</p>
+            )}
+
             <div className="flex items-center justify-between">
               <span className="text-xs text-slate-500">{new Date(p.createdAt).toLocaleDateString()}</span>
-              {p.isMine && (
-                <button onClick={() => remove(p.id)} className="text-xs text-slate-500 underline">
-                  Delete
-                </button>
+              {p.isMine && editingId !== p.id && (
+                <div className="flex gap-3">
+                  <button onClick={() => startEditing(p)} className="text-xs text-slate-500 underline">
+                    {p.mediaId ? (p.body ? "Edit caption" : "Add caption") : "Edit"}
+                  </button>
+                  <button onClick={() => remove(p.id)} className="text-xs text-slate-500 underline">
+                    Delete
+                  </button>
+                </div>
               )}
             </div>
           </div>
         ))}
       </div>
+
+      {lightboxSrc && <Lightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />}
     </div>
   );
 }

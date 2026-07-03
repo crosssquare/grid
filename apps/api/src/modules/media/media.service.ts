@@ -4,7 +4,7 @@ import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { randomUUID } from "node:crypto";
 import { and, desc, eq } from "drizzle-orm";
 import { DRIZZLE_DB, DrizzleDb } from "../../db/db.module";
-import { media, profiles } from "../../db/schema";
+import { feedPosts, media, profiles } from "../../db/schema";
 import { HashScanner, NoOpHashScanner } from "./hash-scanner";
 
 @Injectable()
@@ -72,6 +72,12 @@ export class MediaService {
         moderationStatus: scan.result === "clear" ? "approved" : "csam_flagged"
       })
       .returning();
+
+    // Every publicly visible upload also shows up in the shared Timeline (PRD §4/§5.5) —
+    // the post starts caption-less; the uploader can add one afterward via PUT /posts/:id.
+    if (row.visibility === "public" && row.moderationStatus === "approved") {
+      await this.db.insert(feedPosts).values({ userId, mediaId: row.id });
+    }
 
     return row;
   }
