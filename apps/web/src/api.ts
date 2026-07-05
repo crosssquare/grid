@@ -124,6 +124,8 @@ export const api = {
     return request<MediaItem>("/media", { method: "POST", body: form });
   },
   setProfilePhoto: (mediaId: string) => request(`/media/${mediaId}/profile-photo`, { method: "PUT" }),
+  likeMedia: (mediaId: string) => request(`/media/${mediaId}/like`, { method: "POST" }),
+  unlikeMedia: (mediaId: string) => request(`/media/${mediaId}/like`, { method: "DELETE" }),
   submitReview: (revieweeId: string, rating: number | undefined, body: string) =>
     request<Review>("/reviews", { method: "POST", body: JSON.stringify({ revieweeId, rating, body }) }),
   listPendingReviews: () => request<PendingReview[]>("/reviews/pending"),
@@ -156,6 +158,7 @@ export interface Profile {
   locationShared: boolean;
   hashtags: string[];
   profilePhotoStorageKey: string | null;
+  profilePhotoMediaId?: string | null;
   latitude?: number | null;
   longitude?: number | null;
 }
@@ -184,8 +187,8 @@ export interface ViewedProfile extends Profile {
   isFavorited: boolean;
   canReview: boolean;
   myReviewStatus: string | null;
-  tapCount: number;
-  iTapped: boolean;
+  mediaLikeCount: number;
+  iLikedMedia: boolean;
   isSelf: boolean;
   onlineStatus: string;
   verifiedBadgeTier: number;
@@ -223,14 +226,20 @@ export interface Post {
 
 export interface FeedPost {
   id: string;
+  kind: "post" | "like" | "review";
   userId: string;
   body: string | null;
   mediaId: string | null;
   mediaStorageKey: string | null;
   mediaType: string | null;
+  rating: number | null;
   createdAt: string;
   displayName: string;
   profilePhotoStorageKey: string | null;
+  targetUserId: string | null;
+  targetDisplayName: string | null;
+  likeCount: number;
+  iLiked: boolean;
   isMine: boolean;
 }
 

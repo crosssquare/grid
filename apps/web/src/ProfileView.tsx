@@ -60,10 +60,16 @@ export function ProfileView({
 
   useEffect(load, [userId]);
 
-  async function tap() {
-    if (!profile || profile.iTapped) return;
-    setProfile({ ...profile, iTapped: true, tapCount: profile.tapCount + 1 });
-    await api.sendTap(userId).catch(() => undefined);
+  async function toggleLikeProfilePhoto() {
+    if (!profile || !profile.profilePhotoMediaId) return;
+    const mediaId = profile.profilePhotoMediaId;
+    const wasLiked = profile.iLikedMedia;
+    setProfile({
+      ...profile,
+      iLikedMedia: !wasLiked,
+      mediaLikeCount: profile.mediaLikeCount + (wasLiked ? -1 : 1)
+    });
+    await (wasLiked ? api.unlikeMedia(mediaId) : api.likeMedia(mediaId)).catch(() => undefined);
   }
 
   async function message() {
@@ -188,16 +194,15 @@ export function ProfileView({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                tap();
+                toggleLikeProfilePhoto();
               }}
-              disabled={profile.iTapped}
               className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-full bg-black/50 px-3 py-2 backdrop-blur-sm"
             >
               <FlameIcon
-                active={profile.iTapped}
-                className={`h-6 w-6 ${profile.iTapped ? "" : "text-slate-200"}`}
+                active={profile.iLikedMedia}
+                className={`h-6 w-6 ${profile.iLikedMedia ? "" : "text-slate-200"}`}
               />
-              <span className="text-sm font-medium text-slate-100">{profile.tapCount}</span>
+              <span className="text-sm font-medium text-slate-100">{profile.mediaLikeCount}</span>
             </button>
           )}
         </div>

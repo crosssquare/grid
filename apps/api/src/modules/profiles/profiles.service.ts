@@ -7,11 +7,11 @@ import {
   hashtags,
   profileHashtags,
   media,
+  mediaLikes,
   reviews,
   favorites,
   blocks,
-  profileViews,
-  taps
+  profileViews
 } from "../../db/schema";
 import { UpsertProfileDto } from "./dto/upsert-profile.dto";
 import { ReviewsService } from "../reviews/reviews.service";
@@ -115,7 +115,7 @@ export class ProfilesService {
     let isFavorited = false;
     let canReview = false;
     let myReviewStatus: string | null = null;
-    let iTapped = false;
+    let iLikedMedia = false;
     if (!isSelf) {
       const favorite = await this.db.query.favorites.findFirst({
         where: and(eq(favorites.userId, viewerId), eq(favorites.favoriteId, targetUserId))
@@ -125,10 +125,12 @@ export class ProfilesService {
       myReviewStatus = await this.reviewsService.myReviewStatus(viewerId, targetUserId);
       canReview = myReviewStatus === null && Boolean(await this.reviewsService.findMutualMeetConfirmation(viewerId, targetUserId));
 
-      const tap = await this.db.query.taps.findFirst({
-        where: and(eq(taps.senderId, viewerId), eq(taps.recipientId, targetUserId))
-      });
-      iTapped = Boolean(tap);
+      if (profile.profilePhotoMediaId) {
+        const like = await this.db.query.mediaLikes.findFirst({
+          where: and(eq(mediaLikes.userId, viewerId), eq(mediaLikes.mediaId, profile.profilePhotoMediaId))
+        });
+        iLikedMedia = Boolean(like);
+      }
 
       const viewer = await this.db.query.profiles.findFirst({ where: eq(profiles.userId, viewerId) });
       await this.db.insert(profileViews).values({
@@ -138,10 +140,14 @@ export class ProfilesService {
       });
     }
 
-    const [{ count: tapCount }] = await this.db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(taps)
-      .where(eq(taps.recipientId, targetUserId));
+    let mediaLikeCount = 0;
+    if (profile.profilePhotoMediaId) {
+      const [{ count }] = await this.db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(mediaLikes)
+        .where(eq(mediaLikes.mediaId, profile.profilePhotoMediaId));
+      mediaLikeCount = count;
+    }
 
     const profilePhotoStorageKey = await this.getProfilePhotoStorageKey(profile.profilePhotoMediaId);
 
@@ -151,8 +157,8 @@ export class ProfilesService {
       memberSince: user?.createdAt ?? null,
       hashtags: tags,
       profilePhotoStorageKey,
-      tapCount,
-      iTapped,
+      mediaLikeCount,
+      iLikedMedia,
       gallery: galleryRows.map((r) => ({
         id: r.id,
         mediaType: r.mediaType,

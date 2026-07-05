@@ -6,15 +6,21 @@ import { CreatePostDto } from "./dto/create-post.dto";
 import { UpdatePostDto } from "./dto/update-post.dto";
 
 interface FeedRow extends Record<string, unknown> {
+  kind: "post" | "like" | "review";
   id: string;
-  user_id: string;
+  actor_id: string;
+  target_user_id: string | null;
   body: string | null;
   media_id: string | null;
+  rating: number | null;
+  created_at: string;
+  actor_display_name: string;
+  actor_profile_photo_storage_key: string | null;
+  target_display_name: string | null;
   media_storage_key: string | null;
   media_type: string | null;
-  created_at: string;
-  display_name: string;
-  profile_photo_storage_key: string | null;
+  like_count: number;
+  i_liked: boolean;
 }
 
 @Injectable()
@@ -32,40 +38,79 @@ export class PostsService {
     return post;
   }
 
-  // Timeline: the single shared public activity stream, everyone's posts in
-  // one place (PRD §4/§5.5) — not a per-profile feature. Hides posts from
-  // blocked users (either direction) and from hidden profiles, except the
-  // viewer's own posts always show to themselves.
+  // Timeline: the single shared public activity stream (PRD §4/§5.5), combining a user's own
+  // authored posts with two other activity kinds — liking a photo and leaving an approved+public
+  // review — so all three surface in one chronological feed. Hides activity from blocked users
+  // (either direction) and from hidden profiles, except the viewer's own activity always shows
+  // to themselves. Reviewer identity is intentionally shown even when a review is anonymized to
+  // public profile viewers elsewhere — an explicit product decision for this surface.
   async listFeed(viewerId: string) {
     const result = await this.db.execute<FeedRow>(sql`
-      SELECT fp.id, fp.user_id, fp.body, fp.media_id, fp.created_at,
-             p.display_name, pm.storage_key AS profile_photo_storage_key,
-             m.storage_key AS media_storage_key, m.media_type
-      FROM feed_posts fp
-      JOIN profiles p ON p.user_id = fp.user_id
-      LEFT JOIN media pm ON pm.id = p.profile_photo_media_id
-      LEFT JOIN media m ON m.id = fp.media_id
-      WHERE (p.visibility != 'hidden' OR fp.user_id = ${viewerId})
+      WITH activities AS (
+        SELECT
+          'post'::text AS kind, 'post-' || fp.id::text AS id, fp.user_id AS actor_id,
+          NULL::uuid AS target_user_id, fp.body AS body, fp.media_id AS media_id,
+          NULL::smallint AS rating, fp.created_at AS created_at
+        FROM feed_posts fp
+
+        UNION ALL
+
+        SELECT
+          'like', 'like-' || ml.user_id::text || '-' || ml.media_id::text, ml.user_id,
+          m.user_id, NULL, ml.media_id,
+          NULL, ml.created_at
+        FROM media_likes ml
+        JOIN media m ON m.id = ml.media_id
+
+        UNION ALL
+
+        SELECT
+          'review', 'review-' || r.id::text, r.reviewer_id,
+          r.reviewee_id, r.body, NULL,
+          r.rating, r.created_at
+        FROM reviews r
+        WHERE r.status = 'approved' AND r.visibility = 'public'
+      )
+      SELECT
+        a.kind, a.id, a.actor_id, a.target_user_id, a.body, a.media_id, a.rating, a.created_at,
+        actor.display_name AS actor_display_name,
+        actor_pm.storage_key AS actor_profile_photo_storage_key,
+        target.display_name AS target_display_name,
+        m.storage_key AS media_storage_key, m.media_type,
+        (SELECT count(*)::int FROM media_likes ml2 WHERE ml2.media_id = a.media_id) AS like_count,
+        EXISTS(SELECT 1 FROM media_likes ml3 WHERE ml3.media_id = a.media_id AND ml3.user_id = ${viewerId}) AS i_liked
+      FROM activities a
+      JOIN profiles actor ON actor.user_id = a.actor_id
+      LEFT JOIN media actor_pm ON actor_pm.id = actor.profile_photo_media_id
+      LEFT JOIN profiles target ON target.user_id = a.target_user_id
+      LEFT JOIN media m ON m.id = a.media_id
+      WHERE (actor.visibility != 'hidden' OR a.actor_id = ${viewerId})
         AND NOT EXISTS (
           SELECT 1 FROM blocks b
-          WHERE (b.user_id = ${viewerId} AND b.blocked_id = fp.user_id)
-             OR (b.user_id = fp.user_id AND b.blocked_id = ${viewerId})
+          WHERE (b.user_id = ${viewerId} AND b.blocked_id = a.actor_id)
+             OR (b.user_id = a.actor_id AND b.blocked_id = ${viewerId})
         )
-      ORDER BY fp.created_at DESC
+      ORDER BY a.created_at DESC
       LIMIT 100
     `);
 
     return result.rows.map((row) => ({
       id: row.id,
-      userId: row.user_id,
+      kind: row.kind,
+      userId: row.actor_id,
       body: row.body,
       mediaId: row.media_id,
       mediaStorageKey: row.media_storage_key,
       mediaType: row.media_type,
+      rating: row.rating,
       createdAt: row.created_at,
-      displayName: row.display_name,
-      profilePhotoStorageKey: row.profile_photo_storage_key,
-      isMine: row.user_id === viewerId
+      displayName: row.actor_display_name,
+      profilePhotoStorageKey: row.actor_profile_photo_storage_key,
+      targetUserId: row.target_user_id,
+      targetDisplayName: row.target_display_name,
+      likeCount: row.like_count,
+      iLiked: row.i_liked,
+      isMine: row.actor_id === viewerId
     }));
   }
 

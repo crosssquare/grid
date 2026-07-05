@@ -4,7 +4,7 @@ import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { randomUUID } from "node:crypto";
 import { and, desc, eq } from "drizzle-orm";
 import { DRIZZLE_DB, DrizzleDb } from "../../db/db.module";
-import { feedPosts, media, profiles } from "../../db/schema";
+import { feedPosts, media, mediaLikes, profiles } from "../../db/schema";
 import { HashScanner, NoOpHashScanner } from "./hash-scanner";
 
 @Injectable()
@@ -101,5 +101,19 @@ export class MediaService {
     }
     await this.db.update(profiles).set({ profilePhotoMediaId: mediaId }).where(eq(profiles.userId, userId));
     return { profilePhotoMediaId: mediaId };
+  }
+
+  // Liking a specific photo generates a Timeline activity entry (PRD update: "X liked
+  // [owner]'s photo") — distinct from `taps`, which is a per-user signal, not per-photo.
+  async like(userId: string, mediaId: string) {
+    const row = await this.db.query.media.findFirst({ where: eq(media.id, mediaId) });
+    if (!row) throw new NotFoundException("Photo not found");
+    await this.db.insert(mediaLikes).values({ userId, mediaId }).onConflictDoNothing();
+    return { liked: true };
+  }
+
+  async unlike(userId: string, mediaId: string) {
+    await this.db.delete(mediaLikes).where(and(eq(mediaLikes.userId, userId), eq(mediaLikes.mediaId, mediaId)));
+    return { liked: false };
   }
 }

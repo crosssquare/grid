@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Put,
+  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -50,5 +51,15 @@ export class MediaController {
   @Put(":id/profile-photo")
   setProfilePhoto(@CurrentUser() userId: string, @Param("id", ParseUUIDPipe) id: string) {
     return this.media.setProfilePhoto(userId, id);
+  }
+
+  @Post(":id/like")
+  like(@CurrentUser() userId: string, @Param("id", ParseUUIDPipe) id: string) {
+    return this.media.like(userId, id);
+  }
+
+  @Delete(":id/like")
+  unlike(@CurrentUser() userId: string, @Param("id", ParseUUIDPipe) id: string) {
+    return this.media.unlike(userId, id);
   }
 }

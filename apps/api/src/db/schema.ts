@@ -121,6 +121,16 @@ export const media = pgTable("media", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
 });
 
+export const mediaLikes = pgTable(
+  "media_likes",
+  {
+    userId: uuid("user_id").notNull(),
+    mediaId: uuid("media_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.mediaId] })]
+);
+
 export const favorites = pgTable(
   "favorites",
   {

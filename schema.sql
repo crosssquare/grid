@@ -150,6 +150,16 @@ CREATE TABLE media (
 ALTER TABLE profiles ADD CONSTRAINT profiles_profile_photo_media_id_fkey
     FOREIGN KEY (profile_photo_media_id) REFERENCES media(id) ON DELETE SET NULL;
 
+CREATE TABLE media_likes (
+    user_id       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    media_id      UUID NOT NULL REFERENCES media(id) ON DELETE CASCADE,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (user_id, media_id)
+);
+-- Liking a specific photo — distinct from `taps` (a lightweight per-user "interested in
+-- messaging" signal surfaced in Chat). A like generates a Timeline activity entry
+-- ("X liked [owner]'s photo"), same as an approved+public review does.
+
 -- ---------- Social Graph ----------
 CREATE TABLE favorites (
     user_id       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
