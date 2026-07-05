@@ -90,6 +90,10 @@ export class PostsService {
           WHERE (b.user_id = ${viewerId} AND b.blocked_id = a.actor_id)
              OR (b.user_id = a.actor_id AND b.blocked_id = ${viewerId})
         )
+        -- A "liked" activity is social proof for everyone else, not a notice-to-self —
+        -- suppress your own like activity from your own feed (unlike posts/reviews, which
+        -- you'd naturally still want to see yourself).
+        AND NOT (a.kind = 'like' AND a.actor_id = ${viewerId})
       ORDER BY a.created_at DESC
       LIMIT 100
     `);

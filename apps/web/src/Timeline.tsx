@@ -141,7 +141,32 @@ export function Timeline({ onViewProfile }: { onViewProfile: (userId: string) =>
 
             {p.kind === "review" && p.rating != null && <p className="text-indigo-400">{"★".repeat(p.rating)}</p>}
 
-            {p.mediaStorageKey &&
+            {p.kind === "like" && p.mediaStorageKey && (
+              <div className="flex items-center gap-3">
+                {p.mediaType === "photo" ? (
+                  <img
+                    src={getMediaUrl(p.mediaStorageKey)}
+                    alt=""
+                    onClick={() => setLightboxMediaId(p.mediaId)}
+                    className="h-16 w-16 rounded-md bg-slate-800 object-cover cursor-pointer shrink-0"
+                  />
+                ) : (
+                  <div className="h-16 w-16 rounded-md bg-slate-800 flex items-center justify-center text-xl shrink-0">
+                    🎬
+                  </div>
+                )}
+                <button
+                  onClick={() => toggleLike(p.mediaId!)}
+                  className="flex items-center gap-1.5 rounded-full bg-slate-800 px-2.5 py-1.5"
+                >
+                  <FlameIcon active={p.iLiked} className={`h-5 w-5 ${p.iLiked ? "" : "text-slate-300"}`} />
+                  <span className="text-xs font-medium text-slate-100">{p.likeCount}</span>
+                </button>
+              </div>
+            )}
+
+            {p.kind === "post" &&
+              p.mediaStorageKey &&
               (p.mediaType === "photo" ? (
                 <div className="relative">
                   <img
