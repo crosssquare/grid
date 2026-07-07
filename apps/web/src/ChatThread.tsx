@@ -56,7 +56,7 @@ export function ChatThread({
   const myUserId = localStorage.getItem("userId");
 
   return (
-    <div className="flex h-screen flex-col bg-slate-950 text-slate-100 pb-[calc(4rem+env(safe-area-inset-bottom))]">
+    <div className="flex h-[calc(100vh-3.25rem-env(safe-area-inset-top))] flex-col bg-slate-950 text-slate-100 pb-[calc(4rem+env(safe-area-inset-bottom))]">
       <div className="flex items-center gap-3 border-b border-slate-800 px-4 py-3">
         <button onClick={onBack} className="text-slate-400">
           ← Back

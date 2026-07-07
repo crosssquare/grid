@@ -15,6 +15,7 @@ import { BlocksModule } from "./modules/blocks/blocks.module";
 import { ReportsModule } from "./modules/reports/reports.module";
 import { ReviewsModule } from "./modules/reviews/reviews.module";
 import { PostsModule } from "./modules/posts/posts.module";
+import { NotificationsModule } from "./modules/notifications/notifications.module";
 
 @Module({
   imports: [
@@ -35,7 +36,8 @@ import { PostsModule } from "./modules/posts/posts.module";
     BlocksModule,
     ReportsModule,
     ReviewsModule,
-    PostsModule
+    PostsModule,
+    NotificationsModule
   ]
 })
 export class AppModule {}

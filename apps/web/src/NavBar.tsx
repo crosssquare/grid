@@ -9,7 +9,7 @@ export function NavBar({ view, onChange }: { view: View; onChange: (v: View) => 
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 flex border-t border-slate-800 bg-slate-950 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+    <nav className="fixed bottom-0 left-0 right-0 flex bg-slate-950 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
       {tabs.map((tab) => (
         <button
           key={tab.id}

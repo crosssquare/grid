@@ -26,7 +26,7 @@ const FISTING_PREFERENCES = [
   { value: "no_ff", label: "No FF" }
 ];
 
-export function ProfileForm({ onLogout }: { onLogout: () => void }) {
+export function ProfileForm({ onLogout, onDone }: { onLogout: () => void; onDone?: () => void }) {
   const [profile, setProfile] = useState<Partial<Profile>>({});
   const [hashtagsInput, setHashtagsInput] = useState("");
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
@@ -141,11 +141,18 @@ export function ProfileForm({ onLogout }: { onLogout: () => void }) {
     <div className="min-h-screen bg-slate-950 text-slate-100 px-4 py-8 pb-24">
       <form onSubmit={handleSubmit} className="mx-auto w-full max-w-sm space-y-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold">My Profile</h1>
+          {onDone ? (
+            <button type="button" onClick={onDone} className="text-slate-400">
+              ← Back
+            </button>
+          ) : (
+            <h1 className="text-xl font-semibold">My Profile</h1>
+          )}
           <button type="button" onClick={logout} className="text-sm text-slate-400 underline">
             Log out
           </button>
         </div>
+        {onDone && <h1 className="text-xl font-semibold">Edit profile</h1>}
 
         <PendingReviews />
 

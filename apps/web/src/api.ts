@@ -138,7 +138,8 @@ export const api = {
   listFeed: () => request<FeedPost[]>("/posts"),
   updatePost: (postId: string, body: string) =>
     request<Post>(`/posts/${postId}`, { method: "PUT", body: JSON.stringify({ body }) }),
-  deletePost: (postId: string) => request(`/posts/${postId}`, { method: "DELETE" })
+  deletePost: (postId: string) => request(`/posts/${postId}`, { method: "DELETE" }),
+  listNotifications: () => request<Notification[]>("/notifications")
 };
 
 export interface Profile {
@@ -242,6 +243,21 @@ export interface FeedPost {
   likeCount: number;
   iLiked: boolean;
   isMine: boolean;
+}
+
+export interface Notification {
+  id: string;
+  kind: "like" | "review";
+  actorId: string;
+  actorDisplayName: string;
+  actorProfilePhotoStorageKey: string | null;
+  mediaId: string | null;
+  mediaStorageKey: string | null;
+  mediaType: string | null;
+  rating: number | null;
+  body: string | null;
+  reviewStatus: string | null;
+  createdAt: string;
 }
 
 export interface DiscoveryParams {

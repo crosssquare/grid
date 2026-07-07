@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { ChangeEvent, useEffect, useState } from "react";
 import { api, ApiError, getMediaUrl, ViewedProfile } from "./api";
 import { FlameIcon } from "./FlameIcon";
 import { Lightbox } from "./Lightbox";
@@ -37,14 +37,18 @@ function StatRow({ label, value }: { label: string; value: string | number | nul
   );
 }
 
+const GALLERY_SLOTS = 6;
+
 export function ProfileView({
   userId,
   onBack,
-  onMessage
+  onMessage,
+  onEdit
 }: {
   userId: string;
-  onBack: () => void;
-  onMessage: (conversationId: string, displayName: string) => void;
+  onBack?: () => void;
+  onMessage?: (conversationId: string, displayName: string) => void;
+  onEdit?: () => void;
 }) {
   const [profile, setProfile] = useState<ViewedProfile | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -58,12 +62,22 @@ export function ProfileView({
   const [submittingReview, setSubmittingReview] = useState(false);
   const [reportingReviewId, setReportingReviewId] = useState<string | null>(null);
   const [placeName, setPlaceName] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [notFound, setNotFound] = useState(false);
 
   function load() {
+    setError(null);
+    setNotFound(false);
     api
       .getViewedProfile(userId)
       .then(setProfile)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Something went wrong"));
+      .catch((err) => {
+        if (err instanceof ApiError && err.status === 404) {
+          setNotFound(true);
+        } else {
+          setError(err instanceof ApiError ? err.message : "Something went wrong");
+        }
+      });
   }
 
   useEffect(load, [userId]);
@@ -89,7 +103,23 @@ export function ProfileView({
 
   async function message() {
     const conversation = await api.startConversation(userId).catch(() => null);
-    if (conversation && profile) onMessage(conversation.id, profile.displayName);
+    if (conversation && profile) onMessage?.(conversation.id, profile.displayName);
+  }
+
+  async function handleAddPhoto(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploading(true);
+    setError(null);
+    try {
+      await api.uploadMedia(file, "photo");
+      load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
   }
 
   async function toggleFavorite() {
@@ -176,13 +206,26 @@ export function ProfileView({
     }
   }
 
-  if (error) {
+  if (notFound && onEdit) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 px-4 py-6 pb-24 flex flex-col items-center justify-center gap-4 text-center">
+        <p className="text-slate-400">You haven't set up your profile yet.</p>
+        <button onClick={onEdit} className="rounded-md bg-indigo-600 px-4 py-2.5 font-medium">
+          Set up profile
+        </button>
+      </div>
+    );
+  }
+
+  if (notFound || error) {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 px-4 py-6 pb-24">
-        <button onClick={onBack} className="text-slate-400 mb-4">
-          ← Back
-        </button>
-        <p className="text-red-400 text-sm">{error}</p>
+        {onBack && (
+          <button onClick={onBack} className="text-slate-400 mb-4">
+            ← Back
+          </button>
+        )}
+        <p className="text-red-400 text-sm">{notFound ? "Profile not found" : error}</p>
       </div>
     );
   }
@@ -193,9 +236,11 @@ export function ProfileView({
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 px-4 py-6 pb-24">
-      <button onClick={onBack} className="text-slate-400 mb-4">
-        ← Back
-      </button>
+      {onBack && (
+        <button onClick={onBack} className="text-slate-400 mb-4">
+          ← Back
+        </button>
+      )}
 
       {profile.profilePhotoStorageKey && (
         <div className="relative mb-4">
@@ -239,11 +284,13 @@ export function ProfileView({
         )}
       </div>
 
-      {profile.gallery.length > 0 && (
-        <div className="grid grid-cols-3 gap-2 mb-4">
-          {profile.gallery
-            .filter((m) => m.storageKey !== profile.profilePhotoStorageKey)
-            .map((m) =>
+      {(() => {
+        const rest = profile.gallery.filter((m) => m.storageKey !== profile.profilePhotoStorageKey);
+        if (!profile.isSelf && rest.length === 0) return null;
+        const emptySlots = Math.max(0, GALLERY_SLOTS - rest.length);
+        return (
+          <div className="grid grid-cols-3 gap-2 mb-4">
+            {rest.map((m) =>
               m.mediaType === "photo" ? (
                 <img
                   key={m.id}
@@ -261,8 +308,32 @@ export function ProfileView({
                 </div>
               )
             )}
-        </div>
-      )}
+            {profile.isSelf &&
+              Array.from({ length: emptySlots }).map((_, i) =>
+                i === 0 ? (
+                  <label
+                    key="add-photo"
+                    className="aspect-square rounded-md border-2 border-dashed border-slate-700 flex items-center justify-center text-2xl text-slate-500 cursor-pointer"
+                  >
+                    {uploading ? "…" : "+"}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAddPhoto}
+                      disabled={uploading}
+                      className="hidden"
+                    />
+                  </label>
+                ) : (
+                  <div
+                    key={`empty-${i}`}
+                    className="aspect-square rounded-md border-2 border-dashed border-slate-800"
+                  />
+                )
+              )}
+          </div>
+        );
+      })()}
 
       {profile.bio && <p className="text-sm text-slate-300 mb-4">{profile.bio}</p>}
 
@@ -408,6 +479,15 @@ export function ProfileView({
             </div>
           )}
         </div>
+      )}
+
+      {profile.isSelf && onEdit && (
+        <button
+          onClick={onEdit}
+          className="fixed bottom-20 right-4 z-30 rounded-full bg-indigo-600 px-4 py-2.5 text-sm font-medium shadow-lg"
+        >
+          Edit
+        </button>
       )}
 
       {lightboxSrc && <Lightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />}
