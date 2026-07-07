@@ -11,8 +11,8 @@ export default defineConfig({
         name: "Grid",
         short_name: "Grid",
         description: "A social network for gay & bi men",
-        theme_color: "#0f172a",
-        background_color: "#0f172a",
+        theme_color: "#020617",
+        background_color: "#020617",
         display: "standalone",
         start_url: "/",
         icons: [

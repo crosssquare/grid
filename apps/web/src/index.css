@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Matches the app's own dark background so the translucent iOS status bar area
+   (enabled via apple-mobile-web-app-status-bar-style) blends in instead of showing
+   the default white, and so any overscroll bounce reveals dark, not white. */
+html,
+body {
+  background-color: #020617;
+}
+
 /* Minimum comfortable touch target size for all interactive elements. */
 @layer base {
   button,
