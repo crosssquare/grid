@@ -189,6 +189,7 @@ export interface ViewedProfile extends Profile {
   myReviewStatus: string | null;
   mediaLikeCount: number;
   iLikedMedia: boolean;
+  distanceMeters: number | null;
   isSelf: boolean;
   onlineStatus: string;
   verifiedBadgeTier: number;

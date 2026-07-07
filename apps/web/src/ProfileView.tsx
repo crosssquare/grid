@@ -2,6 +2,13 @@ import { useEffect, useState } from "react";
 import { api, ApiError, getMediaUrl, ViewedProfile } from "./api";
 import { FlameIcon } from "./FlameIcon";
 import { Lightbox } from "./Lightbox";
+import { reverseGeocode } from "./DiscoveryGrid";
+
+function formatDistance(meters: number | null): string | null {
+  if (meters == null) return null;
+  if (meters < 1000) return `${meters}m away`;
+  return `${(meters / 1000).toFixed(1)}km away`;
+}
 
 const REPORT_REASONS = [
   { value: "fake_profile", label: "Fake profile" },
@@ -50,6 +57,7 @@ export function ProfileView({
   const [reviewBody, setReviewBody] = useState("");
   const [submittingReview, setSubmittingReview] = useState(false);
   const [reportingReviewId, setReportingReviewId] = useState<string | null>(null);
+  const [placeName, setPlaceName] = useState<string | null>(null);
 
   function load() {
     api
@@ -59,6 +67,13 @@ export function ProfileView({
   }
 
   useEffect(load, [userId]);
+
+  useEffect(() => {
+    setPlaceName(null);
+    if (profile && !profile.isSelf && profile.latitude != null && profile.longitude != null) {
+      reverseGeocode(profile.latitude, profile.longitude).then(setPlaceName);
+    }
+  }, [profile?.isSelf, profile?.latitude, profile?.longitude]);
 
   async function toggleLikeProfilePhoto() {
     if (!profile || !profile.profilePhotoMediaId) return;
@@ -217,6 +232,11 @@ export function ProfileView({
           Member since {new Date(profile.memberSince).toLocaleDateString()}
           {profile.verifiedBadgeTier > 0 && <span className="text-indigo-400"> · Verified</span>}
         </p>
+        {!profile.isSelf && (placeName || profile.distanceMeters != null) && (
+          <p className="text-xs text-emerald-400">
+            {[placeName, formatDistance(profile.distanceMeters)].filter(Boolean).join(" · ")}
+          </p>
+        )}
       </div>
 
       {profile.gallery.length > 0 && (

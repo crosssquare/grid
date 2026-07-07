@@ -116,6 +116,9 @@ export class ProfilesService {
     let canReview = false;
     let myReviewStatus: string | null = null;
     let iLikedMedia = false;
+    let latitude: number | null = null;
+    let longitude: number | null = null;
+    let distanceMeters: number | null = null;
     if (!isSelf) {
       const favorite = await this.db.query.favorites.findFirst({
         where: and(eq(favorites.userId, viewerId), eq(favorites.favoriteId, targetUserId))
@@ -138,6 +141,25 @@ export class ProfilesService {
         viewedId: targetUserId,
         visibleToViewed: viewer?.notifyOnProfileView ?? true
       });
+
+      if (profile.locationShared) {
+        const locResult = await this.db.execute<{ lat: number | null; lng: number | null; distance_m: number | null }>(sql`
+          SELECT
+            ST_Y(target.location::geometry) AS lat,
+            ST_X(target.location::geometry) AS lng,
+            CASE WHEN target.location IS NOT NULL AND viewer.location IS NOT NULL
+              THEN ST_Distance(target.location, viewer.location)
+              ELSE NULL
+            END AS distance_m
+          FROM profiles target
+          CROSS JOIN (SELECT location FROM profiles WHERE user_id = ${viewerId}) viewer
+          WHERE target.user_id = ${targetUserId}
+        `);
+        const locRow = locResult.rows[0];
+        latitude = locRow?.lat ?? null;
+        longitude = locRow?.lng ?? null;
+        distanceMeters = locRow?.distance_m == null ? null : Math.round(locRow.distance_m);
+      }
     }
 
     let mediaLikeCount = 0;
@@ -159,6 +181,9 @@ export class ProfilesService {
       profilePhotoStorageKey,
       mediaLikeCount,
       iLikedMedia,
+      latitude,
+      longitude,
+      distanceMeters,
       gallery: galleryRows.map((r) => ({
         id: r.id,
         mediaType: r.mediaType,

@@ -10,17 +10,19 @@ function formatDistance(meters: number | null): string | null {
   return `${(meters / 1000).toFixed(1)}km`;
 }
 
-async function reverseGeocode(latitude: number, longitude: number): Promise<string | null> {
+export async function reverseGeocode(latitude: number, longitude: number): Promise<string | null> {
   try {
     const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10`,
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18`,
       { headers: { Accept: "application/json" } }
     );
     if (!res.ok) return null;
     const data = await res.json();
     const a = data.address ?? {};
-    const place = a.city ?? a.town ?? a.village ?? a.county ?? null;
-    return place ? [place, a.country_code?.toUpperCase()].filter(Boolean).join(", ") : null;
+    const street = [a.road, a.house_number].filter(Boolean).join(" ") || null;
+    const city = a.city ?? a.town ?? a.village ?? a.county ?? null;
+    const place = [street, city].filter(Boolean).join(", ");
+    return place || null;
   } catch {
     return null;
   }
