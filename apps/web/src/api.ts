@@ -117,10 +117,11 @@ export const api = {
     request("/reports", { method: "POST", body: JSON.stringify({ reportedUserId, reasonCode, detail }) }),
   listMyMedia: () => request<MediaItem[]>("/media/mine"),
   listUserMedia: (userId: string) => request<MediaItem[]>(`/media/user/${userId}`),
-  uploadMedia: (file: File, mediaType: "photo" | "video") => {
+  uploadMedia: (file: File, mediaType: "photo" | "video", skipPost = false) => {
     const form = new FormData();
     form.append("file", file);
     form.append("mediaType", mediaType);
+    if (skipPost) form.append("skipPost", "true");
     return request<MediaItem>("/media", { method: "POST", body: form });
   },
   setProfilePhoto: (mediaId: string) => request(`/media/${mediaId}/profile-photo`, { method: "PUT" }),
@@ -134,12 +135,27 @@ export const api = {
     request(`/reviews/${reviewId}/decision`, { method: "PUT", body: JSON.stringify({ decision, visibility }) }),
   reportReview: (reviewId: string, reasonCode: string) =>
     request(`/reviews/${reviewId}/report`, { method: "POST", body: JSON.stringify({ reasonCode }) }),
-  createPost: (body: string) => request<Post>("/posts", { method: "POST", body: JSON.stringify({ body }) }),
+  createPost: (body: string, mediaIds?: string[]) =>
+    request<Post>("/posts", { method: "POST", body: JSON.stringify({ body: body || undefined, mediaIds }) }),
   listFeed: () => request<FeedPost[]>("/posts"),
   updatePost: (postId: string, body: string) =>
     request<Post>(`/posts/${postId}`, { method: "PUT", body: JSON.stringify({ body }) }),
   deletePost: (postId: string) => request(`/posts/${postId}`, { method: "DELETE" }),
-  listNotifications: () => request<Notification[]>("/notifications")
+  listNotifications: () => request<Notification[]>("/notifications"),
+  likeReview: (reviewId: string) => request(`/reviews/${reviewId}/like`, { method: "POST" }),
+  unlikeReview: (reviewId: string) => request(`/reviews/${reviewId}/like`, { method: "DELETE" }),
+  listComments: (targetType: "post" | "review", targetId: string) =>
+    request<Comment[]>(`/comments/${targetType}/${targetId}`),
+  createComment: (targetType: "post" | "review", targetId: string, body: string) =>
+    request<Comment>("/comments", { method: "POST", body: JSON.stringify({ targetType, targetId, body }) }),
+  deleteComment: (commentId: string) => request(`/comments/${commentId}`, { method: "DELETE" }),
+  reactToMessage: (conversationId: string, messageId: string, emoji: string) =>
+    request(`/conversations/${conversationId}/messages/${messageId}/reaction`, {
+      method: "PUT",
+      body: JSON.stringify({ emoji })
+    }),
+  removeMessageReaction: (conversationId: string, messageId: string) =>
+    request(`/conversations/${conversationId}/messages/${messageId}/reaction`, { method: "DELETE" })
 };
 
 export interface Profile {
@@ -179,6 +195,7 @@ export interface ViewedReview {
   body: string | null;
   createdAt: string;
   reviewerId: string | null;
+  comments: Comment[];
 }
 
 export interface ViewedProfile extends Profile {
@@ -191,6 +208,8 @@ export interface ViewedProfile extends Profile {
   mediaLikeCount: number;
   iLikedMedia: boolean;
   distanceMeters: number | null;
+  lastSeenAt: string | null;
+  statusText: string | null;
   isSelf: boolean;
   onlineStatus: string;
   verifiedBadgeTier: number;
@@ -226,6 +245,14 @@ export interface Post {
   createdAt: string;
 }
 
+export interface FeedMedia {
+  id: string;
+  storageKey: string;
+  mediaType: string;
+  likeCount: number;
+  iLiked: boolean;
+}
+
 export interface FeedPost {
   id: string;
   kind: "post" | "like" | "review";
@@ -234,15 +261,26 @@ export interface FeedPost {
   mediaId: string | null;
   mediaStorageKey: string | null;
   mediaType: string | null;
+  media: FeedMedia[];
   rating: number | null;
   createdAt: string;
   displayName: string;
   profilePhotoStorageKey: string | null;
+  lastSeenAt: string | null;
   targetUserId: string | null;
   targetDisplayName: string | null;
   likeCount: number;
   iLiked: boolean;
+  commentCount: number;
   isMine: boolean;
+}
+
+export interface Comment {
+  id: string;
+  authorId: string;
+  authorDisplayName: string;
+  body: string;
+  createdAt: string;
 }
 
 export interface Notification {
@@ -281,6 +319,7 @@ export interface DiscoveryProfile {
   age: number | null;
   distanceMeters: number | null;
   profilePhotoStorageKey: string | null;
+  lastSeenAt: string | null;
   isSelf: boolean;
 }
 
@@ -311,6 +350,11 @@ export interface ConversationSummary {
   lastMessageBody: string | null;
 }
 
+export interface MessageReaction {
+  userId: string;
+  emoji: string;
+}
+
 export interface Message {
   id: string;
   conversationId: string;
@@ -319,4 +363,6 @@ export interface Message {
   mediaId: string | null;
   readAt: string | null;
   createdAt: string;
+  senderProfilePhotoStorageKey?: string | null;
+  reactions?: MessageReaction[];
 }

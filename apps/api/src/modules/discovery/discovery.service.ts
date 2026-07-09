@@ -27,6 +27,7 @@ interface DiscoveryRow extends Record<string, unknown> {
   distance_m: number | null;
   created_at: string;
   profile_photo_storage_key: string | null;
+  last_seen_at: string | null;
 }
 
 function mapRow(row: DiscoveryRow, isSelf = false) {
@@ -45,13 +46,14 @@ function mapRow(row: DiscoveryRow, isSelf = false) {
     // real users join, since that's a stated privacy-by-design requirement, not a bug).
     distanceMeters: row.distance_m == null ? null : Math.round(row.distance_m),
     profilePhotoStorageKey: row.profile_photo_storage_key,
+    lastSeenAt: row.last_seen_at,
     isSelf
   };
 }
 
 const SELECT_FIELDS = sql`
   p.user_id, p.display_name, p.bio, p.role, p.body_type, p.health_status,
-  p.online_status, p.verified_badge_tier, p.created_at, u.date_of_birth, pm.storage_key AS profile_photo_storage_key,
+  p.online_status, p.verified_badge_tier, p.created_at, u.date_of_birth, u.last_seen_at, pm.storage_key AS profile_photo_storage_key,
   CASE
     WHEN p.location IS NOT NULL AND p.location_shared AND viewer.location IS NOT NULL
     THEN ST_Distance(p.location, viewer.location)

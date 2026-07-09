@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, ConversationSummary, Tap } from "./api";
+import { timeAgo } from "./presence";
 
 export function ConversationList({
   onOpen,
@@ -76,7 +77,7 @@ export function ConversationList({
             onClick={() => onOpen(c)}
             className="flex w-full items-center justify-between rounded-lg bg-slate-900 px-4 py-3 text-left"
           >
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <p className="font-medium truncate">{c.otherDisplayName}</p>
                 {c.otherOnlineStatus === "online" && <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-400" />}
@@ -88,6 +89,7 @@ export function ConversationList({
               </div>
               <p className="truncate text-sm text-slate-400">{c.lastMessageBody ?? "No messages yet"}</p>
             </div>
+            <span className="ml-3 shrink-0 text-xs text-slate-500">{timeAgo(c.lastMessageAt)}</span>
           </button>
         ))}
       </div>

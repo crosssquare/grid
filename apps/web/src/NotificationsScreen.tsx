@@ -1,16 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, getMediaUrl, Notification } from "./api";
-
-function timeAgo(iso: string): string {
-  const diffMs = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
+import { Lightbox } from "./Lightbox";
+import { timeAgo } from "./presence";
 
 export function NotificationsScreen({
   onBack,
@@ -22,6 +13,8 @@ export function NotificationsScreen({
   const [items, setItems] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const myUserId = localStorage.getItem("userId");
 
   useEffect(() => {
     api
@@ -30,6 +23,16 @@ export function NotificationsScreen({
       .catch((err) => setError(err instanceof ApiError ? err.message : "Something went wrong"))
       .finally(() => setLoading(false));
   }, []);
+
+  // Tap-through: a like opens the photo it's about; a review opens your own profile,
+  // where the review lives.
+  function open(n: Notification) {
+    if (n.kind === "like" && n.mediaStorageKey && n.mediaType === "photo") {
+      setLightboxSrc(getMediaUrl(n.mediaStorageKey));
+    } else if (n.kind === "review" && myUserId) {
+      onViewProfile(myUserId);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 px-4 py-6 pb-24">
@@ -46,8 +49,18 @@ export function NotificationsScreen({
 
       <div className="space-y-2">
         {items.map((n) => (
-          <div key={`${n.kind}-${n.id}`} className="flex items-center gap-3 rounded-md bg-slate-900 p-3 text-sm">
-            <button onClick={() => onViewProfile(n.actorId)} className="shrink-0">
+          <div
+            key={`${n.kind}-${n.id}`}
+            onClick={() => open(n)}
+            className="flex cursor-pointer items-center gap-3 rounded-md bg-slate-900 p-3 text-sm"
+          >
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onViewProfile(n.actorId);
+              }}
+              className="shrink-0"
+            >
               {n.actorProfilePhotoStorageKey ? (
                 <img
                   src={getMediaUrl(n.actorProfilePhotoStorageKey)}
@@ -61,7 +74,13 @@ export function NotificationsScreen({
 
             <div className="flex-1 min-w-0">
               <p>
-                <button onClick={() => onViewProfile(n.actorId)} className="font-medium text-slate-100">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onViewProfile(n.actorId);
+                  }}
+                  className="font-medium text-slate-100"
+                >
                   {n.actorDisplayName}
                 </button>{" "}
                 {n.kind === "like" ? (
@@ -88,6 +107,8 @@ export function NotificationsScreen({
           </div>
         ))}
       </div>
+
+      {lightboxSrc && <Lightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />}
     </div>
   );
 }

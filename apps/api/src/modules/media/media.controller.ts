@@ -27,7 +27,8 @@ export class MediaController {
   upload(
     @CurrentUser() userId: string,
     @UploadedFile() file: Express.Multer.File,
-    @Body("mediaType") mediaType: string
+    @Body("mediaType") mediaType: string,
+    @Body("skipPost") skipPost?: string
   ) {
     if (!file) {
       throw new BadRequestException("No file uploaded");
@@ -35,7 +36,7 @@ export class MediaController {
     if (mediaType !== "photo" && mediaType !== "video") {
       throw new BadRequestException("mediaType must be 'photo' or 'video'");
     }
-    return this.media.upload(userId, file, mediaType);
+    return this.media.upload(userId, file, mediaType, skipPost === "true");
   }
 
   @Get("mine")

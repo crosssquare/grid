@@ -38,6 +38,7 @@ export const users = pgTable("users", {
   foundingMember: boolean("founding_member").notNull().default(false),
   referralInvitesRemaining: smallint("referral_invites_remaining").notNull().default(0),
   referredByUserId: uuid("referred_by_user_id"),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
 });
@@ -188,6 +189,17 @@ export const messages = pgTable("messages", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
 });
 
+export const messageReactions = pgTable(
+  "message_reactions",
+  {
+    messageId: uuid("message_id").notNull(),
+    userId: uuid("user_id").notNull(),
+    emoji: text("emoji").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (t) => [primaryKey({ columns: [t.messageId, t.userId] })]
+);
+
 export const meetConfirmations = pgTable(
   "meet_confirmations",
   {
@@ -227,11 +239,40 @@ export const reviewReports = pgTable("review_reports", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
 });
 
+export const reviewLikes = pgTable(
+  "review_likes",
+  {
+    userId: uuid("user_id").notNull(),
+    reviewId: uuid("review_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.reviewId] })]
+);
+
 export const feedPosts = pgTable("feed_posts", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: uuid("user_id").notNull(),
   body: text("body"),
   mediaId: uuid("media_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+});
+
+export const postMedia = pgTable(
+  "post_media",
+  {
+    postId: uuid("post_id").notNull(),
+    mediaId: uuid("media_id").notNull(),
+    position: smallint("position").notNull().default(0)
+  },
+  (t) => [primaryKey({ columns: [t.postId, t.mediaId] })]
+);
+
+export const comments = pgTable("comments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  authorId: uuid("author_id").notNull(),
+  targetType: text("target_type").notNull(), // 'post' | 'review'
+  targetId: uuid("target_id").notNull(),
+  body: text("body").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
 });
 

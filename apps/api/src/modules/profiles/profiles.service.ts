@@ -1,5 +1,5 @@
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
-import { and, desc, eq, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { DRIZZLE_DB, DrizzleDb } from "../../db/db.module";
 import {
   profiles,
@@ -11,7 +11,9 @@ import {
   reviews,
   favorites,
   blocks,
-  profileViews
+  profileViews,
+  feedPosts,
+  comments
 } from "../../db/schema";
 import { UpsertProfileDto } from "./dto/upsert-profile.dto";
 import { ReviewsService } from "../reviews/reviews.service";
@@ -112,6 +114,30 @@ export class ProfilesService {
       .where(and(eq(reviews.revieweeId, targetUserId), eq(reviews.status, "approved"), eq(reviews.visibility, "public")))
       .orderBy(desc(reviews.createdAt));
 
+    // Comment threads live on the review entity, so the same thread shows both here
+    // and on the review's Timeline activity entry.
+    const reviewComments = new Map<string, { id: string; authorId: string; authorDisplayName: string; body: string; createdAt: Date }[]>();
+    if (reviewRows.length > 0) {
+      const commentRows = await this.db
+        .select({
+          id: comments.id,
+          targetId: comments.targetId,
+          authorId: comments.authorId,
+          body: comments.body,
+          createdAt: comments.createdAt,
+          authorDisplayName: profiles.displayName
+        })
+        .from(comments)
+        .innerJoin(profiles, eq(profiles.userId, comments.authorId))
+        .where(and(eq(comments.targetType, "review"), inArray(comments.targetId, reviewRows.map((r) => r.id))))
+        .orderBy(comments.createdAt);
+      for (const c of commentRows) {
+        const list = reviewComments.get(c.targetId) ?? [];
+        list.push({ id: c.id, authorId: c.authorId, authorDisplayName: c.authorDisplayName, body: c.body, createdAt: c.createdAt });
+        reviewComments.set(c.targetId, list);
+      }
+    }
+
     let isFavorited = false;
     let canReview = false;
     let myReviewStatus: string | null = null;
@@ -173,10 +199,19 @@ export class ProfilesService {
 
     const profilePhotoStorageKey = await this.getProfilePhotoStorageKey(profile.profilePhotoMediaId);
 
+    // The latest Timeline post's text doubles as the profile's status line (text only,
+    // attached photos intentionally not copied here).
+    const latestPost = await this.db.query.feedPosts.findFirst({
+      where: eq(feedPosts.userId, targetUserId),
+      orderBy: desc(feedPosts.createdAt)
+    });
+
     return {
       ...profile,
       age: computeAge(user?.dateOfBirth ?? null),
       memberSince: user?.createdAt ?? null,
+      lastSeenAt: user?.lastSeenAt ?? null,
+      statusText: latestPost?.body?.trim() || null,
       hashtags: tags,
       profilePhotoStorageKey,
       mediaLikeCount,
@@ -195,7 +230,8 @@ export class ProfilesService {
         rating: r.rating,
         body: r.body,
         createdAt: r.createdAt,
-        reviewerId: r.anonymized ? null : r.reviewerId
+        reviewerId: r.anonymized ? null : r.reviewerId,
+        comments: reviewComments.get(r.id) ?? []
       })),
       isFavorited,
       canReview,

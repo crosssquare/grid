@@ -227,6 +227,16 @@ CREATE TABLE messages (
     created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE message_reactions (
+    message_id    UUID NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+    user_id       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    emoji         TEXT NOT NULL, -- charm-bar set: 🔥 | 🐷
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (message_id, user_id)
+);
+-- One reaction per user per message — picking a different emoji replaces the previous one
+-- (upsert on the PK), it does not stack.
+
 -- ---------- Meet Reviews ----------
 -- Gate: either party can flag a conversation as a confirmed real-world meetup.
 -- Reviewing is only permitted once a meet_confirmation exists between the two users.
@@ -266,6 +276,15 @@ CREATE TABLE review_reports (
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE review_likes (
+    user_id       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    review_id     UUID NOT NULL REFERENCES reviews(id) ON DELETE CASCADE,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (user_id, review_id)
+);
+-- Flame-likes on a review's Timeline activity entry. Only meaningful for reviews that are
+-- approved + public (the only ones that surface anywhere likeable).
+
 -- ---------- Community: Timeline, Events, Classifieds ----------
 -- Note: feed_posts is the single shared public Timeline (the app's home tab).
 -- There is no per-user personal timeline — a user's posts only ever live on
@@ -275,9 +294,33 @@ CREATE TABLE feed_posts (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     body          TEXT,
-    media_id      UUID REFERENCES media(id),
+    media_id      UUID REFERENCES media(id), -- legacy single-photo column; post_media is the source of truth
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- A user's latest feed_posts.body doubles as their profile "status" line (text only —
+-- attached photos are not copied to the profile status display).
+
+CREATE TABLE post_media (
+    post_id       UUID NOT NULL REFERENCES feed_posts(id) ON DELETE CASCADE,
+    media_id      UUID NOT NULL REFERENCES media(id) ON DELETE CASCADE,
+    position      SMALLINT NOT NULL DEFAULT 0, -- display order within the post
+    PRIMARY KEY (post_id, media_id)
+);
+-- Multi-photo attachments for a Timeline post. Existing single-photo posts were backfilled
+-- here (position 0); new posts write here only, feed queries read from here only.
+
+CREATE TABLE comments (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    author_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    target_type   TEXT NOT NULL CHECK (target_type IN ('post', 'review')),
+    target_id     UUID NOT NULL, -- feed_posts.id or reviews.id depending on target_type
+    body          TEXT NOT NULL,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX comments_target_idx ON comments (target_type, target_id, created_at);
+-- Flat comment threads on Timeline posts (incl. photo posts) and on reviews. Review comments
+-- also surface under the same review on the reviewee's profile — one thread, two surfaces.
+-- No FK on target_id (polymorphic); orphan cleanup is handled at the app layer on delete.
 
 CREATE TABLE events (
     id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),

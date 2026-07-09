@@ -10,6 +10,11 @@ export interface AuthenticatedRequest extends Request {
   userId: string;
 }
 
+// Presence is derived from users.last_seen_at ("online" = seen within the last 30 min).
+// Writes are throttled per user so a busy screen doesn't turn every fetch into an UPDATE.
+const LAST_SEEN_WRITE_INTERVAL_MS = 60_000;
+const lastSeenWrites = new Map<string, number>();
+
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
   constructor(
@@ -17,6 +22,18 @@ export class JwtAuthGuard implements CanActivate {
     private readonly config: ConfigService,
     @Inject(DRIZZLE_DB) private readonly db: DrizzleDb
   ) {}
+
+  private touchLastSeen(userId: string) {
+    const now = Date.now();
+    const last = lastSeenWrites.get(userId);
+    if (last && now - last < LAST_SEEN_WRITE_INTERVAL_MS) return;
+    lastSeenWrites.set(userId, now);
+    void this.db
+      .update(users)
+      .set({ lastSeenAt: new Date() })
+      .where(eq(users.id, userId))
+      .catch(() => lastSeenWrites.delete(userId));
+  }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
@@ -41,6 +58,7 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     request.userId = userId;
+    this.touchLastSeen(userId);
     return true;
   }
 }

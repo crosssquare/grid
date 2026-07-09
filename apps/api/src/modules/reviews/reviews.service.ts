@@ -1,7 +1,7 @@
 import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { and, eq } from "drizzle-orm";
 import { DRIZZLE_DB, DrizzleDb } from "../../db/db.module";
-import { conversations, meetConfirmations, profiles, reviewReports, reviews } from "../../db/schema";
+import { conversations, meetConfirmations, profiles, reviewLikes, reviewReports, reviews } from "../../db/schema";
 import { CreateReviewDto } from "./dto/create-review.dto";
 import { DecideReviewDto } from "./dto/decide-review.dto";
 import { ReportReviewDto } from "./dto/report-review.dto";
@@ -128,5 +128,19 @@ export class ReviewsService {
       .values({ reviewId, reporterId, reasonCode: dto.reasonCode })
       .returning();
     return report;
+  }
+
+  async like(userId: string, reviewId: string) {
+    const review = await this.db.query.reviews.findFirst({ where: eq(reviews.id, reviewId) });
+    if (!review || review.status !== "approved" || review.visibility !== "public") {
+      throw new NotFoundException("Review not found");
+    }
+    await this.db.insert(reviewLikes).values({ userId, reviewId }).onConflictDoNothing();
+    return { liked: true };
+  }
+
+  async unlike(userId: string, reviewId: string) {
+    await this.db.delete(reviewLikes).where(and(eq(reviewLikes.userId, userId), eq(reviewLikes.reviewId, reviewId)));
+    return { liked: false };
   }
 }

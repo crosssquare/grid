@@ -1,7 +1,7 @@
 import { ForbiddenException, Inject, Injectable, NotFoundException } from "@nestjs/common";
-import { and, asc, eq, or, sql } from "drizzle-orm";
+import { and, eq, or, sql } from "drizzle-orm";
 import { DRIZZLE_DB, DrizzleDb } from "../../db/db.module";
-import { conversations, messages, blocks, meetConfirmations } from "../../db/schema";
+import { conversations, messages, messageReactions, blocks, meetConfirmations } from "../../db/schema";
 
 interface ConversationRow extends Record<string, unknown> {
   id: string;
@@ -11,6 +11,18 @@ interface ConversationRow extends Record<string, unknown> {
   other_display_name: string;
   other_online_status: string;
   last_message_body: string | null;
+}
+
+interface MessageRow extends Record<string, unknown> {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  body: string | null;
+  media_id: string | null;
+  read_at: string | null;
+  created_at: string;
+  sender_profile_photo_storage_key: string | null;
+  reactions: { userId: string; emoji: string }[];
 }
 
 @Injectable()
@@ -90,10 +102,58 @@ export class ChatService {
 
   async getMessages(userId: string, conversationId: string) {
     await this.assertParticipant(userId, conversationId);
-    return this.db.query.messages.findMany({
-      where: eq(messages.conversationId, conversationId),
-      orderBy: asc(messages.createdAt)
-    });
+    const result = await this.db.execute<MessageRow>(sql`
+      SELECT
+        msg.id, msg.conversation_id, msg.sender_id, msg.body, msg.media_id, msg.read_at, msg.created_at,
+        pm.storage_key AS sender_profile_photo_storage_key,
+        COALESCE(
+          (SELECT json_agg(json_build_object('userId', mr.user_id, 'emoji', mr.emoji))
+           FROM message_reactions mr WHERE mr.message_id = msg.id),
+          '[]'::json
+        ) AS reactions
+      FROM messages msg
+      JOIN profiles sp ON sp.user_id = msg.sender_id
+      LEFT JOIN media pm ON pm.id = sp.profile_photo_media_id
+      WHERE msg.conversation_id = ${conversationId}
+      ORDER BY msg.created_at ASC
+    `);
+    return result.rows.map((row) => ({
+      id: row.id,
+      conversationId: row.conversation_id,
+      senderId: row.sender_id,
+      body: row.body,
+      mediaId: row.media_id,
+      readAt: row.read_at,
+      createdAt: row.created_at,
+      senderProfilePhotoStorageKey: row.sender_profile_photo_storage_key,
+      reactions: row.reactions
+    }));
+  }
+
+  // Charm-bar reactions: one reaction per user per message — reacting again with a
+  // different emoji replaces it rather than stacking.
+  async react(userId: string, conversationId: string, messageId: string, emoji: string) {
+    await this.assertParticipant(userId, conversationId);
+    const message = await this.db.query.messages.findFirst({ where: eq(messages.id, messageId) });
+    if (!message || message.conversationId !== conversationId) {
+      throw new NotFoundException("Message not found");
+    }
+    await this.db
+      .insert(messageReactions)
+      .values({ messageId, userId, emoji })
+      .onConflictDoUpdate({
+        target: [messageReactions.messageId, messageReactions.userId],
+        set: { emoji, createdAt: new Date() }
+      });
+    return { reacted: true, emoji };
+  }
+
+  async unreact(userId: string, conversationId: string, messageId: string) {
+    await this.assertParticipant(userId, conversationId);
+    await this.db
+      .delete(messageReactions)
+      .where(and(eq(messageReactions.messageId, messageId), eq(messageReactions.userId, userId)));
+    return { reacted: false };
   }
 
   async sendMessage(userId: string, conversationId: string, body?: string, mediaId?: string) {

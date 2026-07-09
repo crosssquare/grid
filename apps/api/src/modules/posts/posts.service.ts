@@ -1,9 +1,17 @@
 import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from "@nestjs/common";
-import { eq, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { DRIZZLE_DB, DrizzleDb } from "../../db/db.module";
-import { feedPosts } from "../../db/schema";
+import { comments, feedPosts, media, postMedia } from "../../db/schema";
 import { CreatePostDto } from "./dto/create-post.dto";
 import { UpdatePostDto } from "./dto/update-post.dto";
+
+export interface FeedMediaJson {
+  id: string;
+  storageKey: string;
+  mediaType: string;
+  likeCount: number;
+  iLiked: boolean;
+}
 
 interface FeedRow extends Record<string, unknown> {
   kind: "post" | "like" | "review";
@@ -16,11 +24,14 @@ interface FeedRow extends Record<string, unknown> {
   created_at: string;
   actor_display_name: string;
   actor_profile_photo_storage_key: string | null;
+  actor_last_seen_at: string | null;
   target_display_name: string | null;
   media_storage_key: string | null;
   media_type: string | null;
   like_count: number;
   i_liked: boolean;
+  comment_count: number;
+  post_media_json: FeedMediaJson[] | null;
 }
 
 @Injectable()
@@ -28,13 +39,27 @@ export class PostsService {
   constructor(@Inject(DRIZZLE_DB) private readonly db: DrizzleDb) {}
 
   async create(userId: string, dto: CreatePostDto) {
-    if (!dto.body && !dto.mediaId) {
+    const mediaIds = dto.mediaIds ?? (dto.mediaId ? [dto.mediaId] : []);
+    if (!dto.body?.trim() && mediaIds.length === 0) {
       throw new BadRequestException("A post needs text or media");
     }
+
+    if (mediaIds.length > 0) {
+      const owned = await this.db.query.media.findMany({ where: inArray(media.id, mediaIds) });
+      if (owned.length !== mediaIds.length || owned.some((m) => m.userId !== userId)) {
+        throw new BadRequestException("You can only attach your own photos");
+      }
+    }
+
     const [post] = await this.db
       .insert(feedPosts)
-      .values({ userId, body: dto.body, mediaId: dto.mediaId })
+      .values({ userId, body: dto.body, mediaId: mediaIds[0] ?? null })
       .returning();
+    if (mediaIds.length > 0) {
+      await this.db
+        .insert(postMedia)
+        .values(mediaIds.map((mediaId, position) => ({ postId: post.id, mediaId, position })));
+    }
     return post;
   }
 
@@ -44,19 +69,23 @@ export class PostsService {
   // (either direction) and from hidden profiles, except the viewer's own activity always shows
   // to themselves. Reviewer identity is intentionally shown even when a review is anonymized to
   // public profile viewers elsewhere — an explicit product decision for this surface.
+  //
+  // Like semantics per kind: posts carry per-photo likes inside `media[]` (a post is likeable
+  // photo-by-photo); review entries are likeable as a whole via review_likes; "liked" entries
+  // reference the photo's own media_likes count.
   async listFeed(viewerId: string) {
     const result = await this.db.execute<FeedRow>(sql`
       WITH activities AS (
         SELECT
-          'post'::text AS kind, 'post-' || fp.id::text AS id, fp.user_id AS actor_id,
-          NULL::uuid AS target_user_id, fp.body AS body, fp.media_id AS media_id,
+          'post'::text AS kind, 'post-' || fp.id::text AS id, fp.id AS entity_id, fp.user_id AS actor_id,
+          NULL::uuid AS target_user_id, fp.body AS body, NULL::uuid AS media_id,
           NULL::smallint AS rating, fp.created_at AS created_at
         FROM feed_posts fp
 
         UNION ALL
 
         SELECT
-          'like', 'like-' || ml.user_id::text || '-' || ml.media_id::text, ml.user_id,
+          'like', 'like-' || ml.user_id::text || '-' || ml.media_id::text, NULL, ml.user_id,
           m.user_id, NULL, ml.media_id,
           NULL, ml.created_at
         FROM media_likes ml
@@ -65,7 +94,7 @@ export class PostsService {
         UNION ALL
 
         SELECT
-          'review', 'review-' || r.id::text, r.reviewer_id,
+          'review', 'review-' || r.id::text, r.id, r.reviewer_id,
           r.reviewee_id, r.body, NULL,
           r.rating, r.created_at
         FROM reviews r
@@ -75,12 +104,36 @@ export class PostsService {
         a.kind, a.id, a.actor_id, a.target_user_id, a.body, a.media_id, a.rating, a.created_at,
         actor.display_name AS actor_display_name,
         actor_pm.storage_key AS actor_profile_photo_storage_key,
+        au.last_seen_at AS actor_last_seen_at,
         target.display_name AS target_display_name,
         m.storage_key AS media_storage_key, m.media_type,
-        (SELECT count(*)::int FROM media_likes ml2 WHERE ml2.media_id = a.media_id) AS like_count,
-        EXISTS(SELECT 1 FROM media_likes ml3 WHERE ml3.media_id = a.media_id AND ml3.user_id = ${viewerId}) AS i_liked
+        CASE a.kind
+          WHEN 'review' THEN (SELECT count(*)::int FROM review_likes rl WHERE rl.review_id = a.entity_id)
+          ELSE (SELECT count(*)::int FROM media_likes ml2 WHERE ml2.media_id = a.media_id)
+        END AS like_count,
+        CASE a.kind
+          WHEN 'review' THEN EXISTS(SELECT 1 FROM review_likes rl2 WHERE rl2.review_id = a.entity_id AND rl2.user_id = ${viewerId})
+          ELSE EXISTS(SELECT 1 FROM media_likes ml3 WHERE ml3.media_id = a.media_id AND ml3.user_id = ${viewerId})
+        END AS i_liked,
+        CASE a.kind
+          WHEN 'post' THEN (SELECT count(*)::int FROM comments c WHERE c.target_type = 'post' AND c.target_id = a.entity_id)
+          WHEN 'review' THEN (SELECT count(*)::int FROM comments c WHERE c.target_type = 'review' AND c.target_id = a.entity_id)
+          ELSE 0
+        END AS comment_count,
+        CASE WHEN a.kind = 'post' THEN (
+          SELECT json_agg(json_build_object(
+            'id', m2.id,
+            'storageKey', m2.storage_key,
+            'mediaType', m2.media_type,
+            'likeCount', (SELECT count(*)::int FROM media_likes ml4 WHERE ml4.media_id = m2.id),
+            'iLiked', EXISTS(SELECT 1 FROM media_likes ml5 WHERE ml5.media_id = m2.id AND ml5.user_id = ${viewerId})
+          ) ORDER BY pm.position)
+          FROM post_media pm JOIN media m2 ON m2.id = pm.media_id
+          WHERE pm.post_id = a.entity_id
+        ) END AS post_media_json
       FROM activities a
       JOIN profiles actor ON actor.user_id = a.actor_id
+      JOIN users au ON au.id = a.actor_id
       LEFT JOIN media actor_pm ON actor_pm.id = actor.profile_photo_media_id
       LEFT JOIN profiles target ON target.user_id = a.target_user_id
       LEFT JOIN media m ON m.id = a.media_id
@@ -106,14 +159,17 @@ export class PostsService {
       mediaId: row.media_id,
       mediaStorageKey: row.media_storage_key,
       mediaType: row.media_type,
+      media: row.post_media_json ?? [],
       rating: row.rating,
       createdAt: row.created_at,
       displayName: row.actor_display_name,
       profilePhotoStorageKey: row.actor_profile_photo_storage_key,
+      lastSeenAt: row.actor_last_seen_at,
       targetUserId: row.target_user_id,
       targetDisplayName: row.target_display_name,
       likeCount: row.like_count,
       iLiked: row.i_liked,
+      commentCount: row.comment_count,
       isMine: row.actor_id === viewerId
     }));
   }
@@ -135,6 +191,8 @@ export class PostsService {
     if (!post) throw new NotFoundException("Post not found");
     if (post.userId !== userId) throw new ForbiddenException("Not your post");
     await this.db.delete(feedPosts).where(eq(feedPosts.id, postId));
+    // comments.target_id has no FK (polymorphic target) — clean up the thread here
+    await this.db.delete(comments).where(sql`${comments.targetType} = 'post' AND ${comments.targetId} = ${postId}`);
     return { deleted: true };
   }
 }

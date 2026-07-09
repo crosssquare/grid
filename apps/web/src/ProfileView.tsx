@@ -2,13 +2,21 @@ import { ChangeEvent, useEffect, useState } from "react";
 import { api, ApiError, getMediaUrl, ViewedProfile } from "./api";
 import { FlameIcon } from "./FlameIcon";
 import { Lightbox } from "./Lightbox";
-import { reverseGeocode } from "./DiscoveryGrid";
+import { CommentThread } from "./CommentThread";
+import { isOnline, timeAgo } from "./presence";
 
 function formatDistance(meters: number | null): string | null {
   if (meters == null) return null;
-  if (meters < 1000) return `${meters}m away`;
-  return `${(meters / 1000).toFixed(1)}km away`;
+  return `${meters}m away`;
 }
+
+const DIRTY_LABELS: Record<string, string> = { dirty: "Dirty", not_dirty: "Not dirty", ws_only: "WS only" };
+const FISTING_LABELS: Record<string, string> = {
+  ff_active: "FF Active",
+  ff_passive: "FF Passive",
+  ff_vers: "FF Vers",
+  no_ff: "No FF"
+};
 
 const REPORT_REASONS = [
   { value: "fake_profile", label: "Fake profile" },
@@ -61,9 +69,10 @@ export function ProfileView({
   const [reviewBody, setReviewBody] = useState("");
   const [submittingReview, setSubmittingReview] = useState(false);
   const [reportingReviewId, setReportingReviewId] = useState<string | null>(null);
-  const [placeName, setPlaceName] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  const [statusDraft, setStatusDraft] = useState("");
+  const [postingStatus, setPostingStatus] = useState(false);
 
   function load() {
     setError(null);
@@ -82,12 +91,21 @@ export function ProfileView({
 
   useEffect(load, [userId]);
 
-  useEffect(() => {
-    setPlaceName(null);
-    if (profile && !profile.isSelf && profile.latitude != null && profile.longitude != null) {
-      reverseGeocode(profile.latitude, profile.longitude).then(setPlaceName);
+  // Posting a status here IS posting to the Timeline — the profile status line simply
+  // mirrors the latest post's text.
+  async function submitStatus() {
+    if (!statusDraft.trim() || postingStatus) return;
+    setPostingStatus(true);
+    try {
+      await api.createPost(statusDraft.trim());
+      setProfile((p) => (p ? { ...p, statusText: statusDraft.trim() } : p));
+      setStatusDraft("");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Couldn't update status");
+    } finally {
+      setPostingStatus(false);
     }
-  }, [profile?.isSelf, profile?.latitude, profile?.longitude]);
+  }
 
   async function toggleLikeProfilePhoto() {
     if (!profile || !profile.profilePhotoMediaId) return;
@@ -242,6 +260,31 @@ export function ProfileView({
         </button>
       )}
 
+      <div className="mb-4">
+        <div className="flex items-center justify-between gap-2">
+          <h1 className="text-xl font-semibold">{profile.displayName}</h1>
+          {profile.lastSeenAt &&
+            (isOnline(profile.lastSeenAt) ? (
+              <span className="flex items-center gap-1.5 text-xs text-emerald-400">
+                <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                Online
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5 text-xs text-slate-500">
+                <span className="h-2 w-2 rounded-full bg-slate-600" />
+                Online {timeAgo(profile.lastSeenAt)}
+              </span>
+            ))}
+        </div>
+        <p className="text-xs text-slate-500">
+          Member since {new Date(profile.memberSince).toLocaleDateString()}
+          {profile.verifiedBadgeTier > 0 && <span className="text-indigo-400"> · Verified</span>}
+        </p>
+        {!profile.isSelf && profile.distanceMeters != null && (
+          <p className="text-xs text-emerald-400">{formatDistance(profile.distanceMeters)}</p>
+        )}
+      </div>
+
       {profile.profilePhotoStorageKey && (
         <div className="relative mb-4">
           <img
@@ -268,21 +311,29 @@ export function ProfileView({
         </div>
       )}
 
-      <div className="mb-4">
-        <div className="flex items-center gap-2">
-          <h1 className="text-xl font-semibold">{profile.displayName}</h1>
-          {profile.onlineStatus === "online" && <span className="h-2 w-2 rounded-full bg-emerald-400" />}
+      {!profile.isSelf && profile.statusText && (
+        <p className="mb-4 text-sm italic text-slate-300">"{profile.statusText}"</p>
+      )}
+
+      {profile.isSelf && (
+        <div className="mb-4 rounded-md bg-slate-900 p-3 space-y-2">
+          {profile.statusText && <p className="text-sm italic text-slate-300">"{profile.statusText}"</p>}
+          <textarea
+            value={statusDraft}
+            onChange={(e) => setStatusDraft(e.target.value)}
+            placeholder="Update your status"
+            rows={2}
+            className="w-full rounded-md bg-slate-800 p-2 text-sm outline-none"
+          />
+          <button
+            onClick={submitStatus}
+            disabled={postingStatus || !statusDraft.trim()}
+            className="w-full rounded-md bg-indigo-600 py-2 text-sm font-medium disabled:opacity-50"
+          >
+            {postingStatus ? "Posting…" : "Post"}
+          </button>
         </div>
-        <p className="text-xs text-slate-500">
-          Member since {new Date(profile.memberSince).toLocaleDateString()}
-          {profile.verifiedBadgeTier > 0 && <span className="text-indigo-400"> · Verified</span>}
-        </p>
-        {!profile.isSelf && (placeName || profile.distanceMeters != null) && (
-          <p className="text-xs text-emerald-400">
-            {[placeName, formatDistance(profile.distanceMeters)].filter(Boolean).join(" · ")}
-          </p>
-        )}
-      </div>
+      )}
 
       {(() => {
         const rest = profile.gallery.filter((m) => m.storageKey !== profile.profilePhotoStorageKey);
@@ -355,8 +406,8 @@ export function ProfileView({
         <StatRow label="Size" value={profile.size?.toUpperCase()} />
         <StatRow label="Status" value={profile.healthStatus} />
         <StatRow label="Smoker" value={profile.smoker == null ? null : profile.smoker ? "Yes" : "No"} />
-        <StatRow label="Dirty" value={profile.dirtyPreference} />
-        <StatRow label="Fisting" value={profile.fistingPreference} />
+        <StatRow label="Dirty" value={profile.dirtyPreference ? DIRTY_LABELS[profile.dirtyPreference] : null} />
+        <StatRow label="Fisting" value={profile.fistingPreference ? FISTING_LABELS[profile.fistingPreference] : null} />
         <StatRow label="Contact" value={profile.contactInfo} />
       </div>
 
@@ -394,6 +445,7 @@ export function ProfileView({
                     Report
                   </button>
                 )}
+                <CommentThread targetType="review" targetId={r.id} initialComments={r.comments} />
               </div>
             ))}
           </div>

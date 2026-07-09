@@ -1,15 +1,24 @@
-import { useEffect, useState } from "react";
-import { api, ApiError, FeedPost, getMediaUrl } from "./api";
+import { ChangeEvent, useEffect, useState } from "react";
+import { api, ApiError, FeedMedia, FeedPost, MediaItem, getMediaUrl } from "./api";
 import { FlameIcon } from "./FlameIcon";
 import { Lightbox } from "./Lightbox";
+import { CommentThread } from "./CommentThread";
+import { UndoToast } from "./UndoToast";
+import { OnlineDot } from "./presence";
 
 function postId(feedId: string): string {
   return feedId.replace(/^post-/, "");
 }
 
+function reviewId(feedId: string): string {
+  return feedId.replace(/^review-/, "");
+}
+
 export function Timeline({ onViewProfile }: { onViewProfile: (userId: string) => void }) {
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [draft, setDraft] = useState("");
+  const [attachments, setAttachments] = useState<MediaItem[]>([]);
+  const [uploadingCount, setUploadingCount] = useState(0);
   const [posting, setPosting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -17,6 +26,8 @@ export function Timeline({ onViewProfile }: { onViewProfile: (userId: string) =>
   const [editingId, setEditingId] = useState<string | null>(null);
   const [captionDraft, setCaptionDraft] = useState("");
   const [savingCaption, setSavingCaption] = useState(false);
+  const [openCommentsId, setOpenCommentsId] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<{ post: FeedPost; index: number } | null>(null);
 
   function load() {
     api
@@ -28,13 +39,34 @@ export function Timeline({ onViewProfile }: { onViewProfile: (userId: string) =>
 
   useEffect(load, []);
 
+  async function handleAttach(e: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    if (files.length === 0) return;
+    setUploadingCount((n) => n + files.length);
+    setError(null);
+    for (const file of files) {
+      try {
+        // skipPost: the composer creates ONE post referencing all photos — without it,
+        // every upload would auto-create its own caption-less Timeline entry too.
+        const item = await api.uploadMedia(file, "photo", true);
+        setAttachments((prev) => [...prev, item]);
+      } catch (err) {
+        setError(err instanceof ApiError ? err.message : "Upload failed");
+      } finally {
+        setUploadingCount((n) => n - 1);
+      }
+    }
+  }
+
   async function submitPost() {
-    if (!draft.trim()) return;
+    if (!draft.trim() && attachments.length === 0) return;
     setPosting(true);
     setError(null);
     try {
-      await api.createPost(draft.trim());
+      await api.createPost(draft.trim(), attachments.length > 0 ? attachments.map((a) => a.id) : undefined);
       setDraft("");
+      setAttachments([]);
       load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Couldn't post");
@@ -43,9 +75,33 @@ export function Timeline({ onViewProfile }: { onViewProfile: (userId: string) =>
     }
   }
 
-  async function remove(feedId: string) {
+  function remove(feedId: string) {
+    const index = posts.findIndex((p) => p.id === feedId);
+    if (index === -1) return;
+    const post = posts[index];
+    // A pending delete that hasn't expired yet gets committed now — only one undo at a time.
+    if (pendingDelete) {
+      void api.deletePost(postId(pendingDelete.post.id)).catch(() => undefined);
+    }
     setPosts((prev) => prev.filter((p) => p.id !== feedId));
-    await api.deletePost(postId(feedId)).catch(() => undefined);
+    setPendingDelete({ post, index });
+  }
+
+  function commitPendingDelete() {
+    if (!pendingDelete) return;
+    void api.deletePost(postId(pendingDelete.post.id)).catch(() => undefined);
+    setPendingDelete(null);
+  }
+
+  function undoPendingDelete() {
+    if (!pendingDelete) return;
+    const { post, index } = pendingDelete;
+    setPosts((prev) => {
+      const next = [...prev];
+      next.splice(Math.min(index, next.length), 0, post);
+      return next;
+    });
+    setPendingDelete(null);
   }
 
   function startEditing(post: FeedPost) {
@@ -66,18 +122,82 @@ export function Timeline({ onViewProfile }: { onViewProfile: (userId: string) =>
     }
   }
 
-  async function toggleLike(mediaId: string) {
-    const current = posts.find((p) => p.mediaId === mediaId);
-    const wasLiked = current?.iLiked ?? false;
+  // Per-photo flame — updates the photo everywhere it appears (post media arrays and
+  // "liked" activity entries share the same media id).
+  async function toggleMediaLike(mediaId: string) {
+    let wasLiked = false;
+    for (const p of posts) {
+      const inMedia = p.media.find((m) => m.id === mediaId);
+      if (inMedia) wasLiked = inMedia.iLiked;
+      else if (p.kind === "like" && p.mediaId === mediaId) wasLiked = p.iLiked;
+    }
     setPosts((prev) =>
-      prev.map((p) =>
-        p.mediaId === mediaId ? { ...p, iLiked: !wasLiked, likeCount: p.likeCount + (wasLiked ? -1 : 1) } : p
-      )
+      prev.map((p) => {
+        const next = { ...p };
+        if (p.kind === "like" && p.mediaId === mediaId) {
+          next.iLiked = !wasLiked;
+          next.likeCount = p.likeCount + (wasLiked ? -1 : 1);
+        }
+        next.media = p.media.map((m) =>
+          m.id === mediaId ? { ...m, iLiked: !wasLiked, likeCount: m.likeCount + (wasLiked ? -1 : 1) } : m
+        );
+        return next;
+      })
     );
     await (wasLiked ? api.unlikeMedia(mediaId) : api.likeMedia(mediaId)).catch(() => undefined);
   }
 
-  const lightboxPost = posts.find((p) => p.mediaId === lightboxMediaId);
+  async function toggleReviewLike(feedId: string) {
+    const entry = posts.find((p) => p.id === feedId);
+    if (!entry) return;
+    const wasLiked = entry.iLiked;
+    setPosts((prev) =>
+      prev.map((p) => (p.id === feedId ? { ...p, iLiked: !wasLiked, likeCount: p.likeCount + (wasLiked ? -1 : 1) } : p))
+    );
+    const id = reviewId(feedId);
+    await (wasLiked ? api.unlikeReview(id) : api.likeReview(id)).catch(() => undefined);
+  }
+
+  function findLightboxMedia(): { media: FeedMedia } | null {
+    if (!lightboxMediaId) return null;
+    for (const p of posts) {
+      const m = p.media.find((x) => x.id === lightboxMediaId);
+      if (m) return { media: m };
+      if (p.kind === "like" && p.mediaId === lightboxMediaId && p.mediaStorageKey) {
+        return {
+          media: {
+            id: p.mediaId,
+            storageKey: p.mediaStorageKey,
+            mediaType: p.mediaType ?? "photo",
+            likeCount: p.likeCount,
+            iLiked: p.iLiked
+          }
+        };
+      }
+    }
+    return null;
+  }
+
+  const lightbox = findLightboxMedia();
+
+  function mediaFlame(m: FeedMedia, overlay: boolean) {
+    return (
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          toggleMediaLike(m.id);
+        }}
+        className={
+          overlay
+            ? "absolute bottom-2 right-2 flex items-center gap-1.5 rounded-full bg-black/50 px-2.5 py-1.5 backdrop-blur-sm"
+            : "flex items-center gap-1.5 rounded-full bg-slate-800 px-2.5 py-1.5"
+        }
+      >
+        <FlameIcon active={m.iLiked} className={`h-5 w-5 ${m.iLiked ? "" : "text-slate-200"}`} />
+        <span className="text-xs font-medium text-slate-100">{m.likeCount}</span>
+      </button>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 px-4 py-6 pb-24">
@@ -87,18 +207,45 @@ export function Timeline({ onViewProfile }: { onViewProfile: (userId: string) =>
         <textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder="Share something…"
+          placeholder="Update your status"
           rows={2}
           className="w-full rounded-md bg-slate-800 p-2 text-sm outline-none"
         />
+        {(attachments.length > 0 || uploadingCount > 0) && (
+          <div className="flex flex-wrap gap-2">
+            {attachments.map((a) => (
+              <div key={a.id} className="relative">
+                <img src={getMediaUrl(a.storageKey)} alt="" className="h-16 w-16 rounded-md bg-slate-800 object-cover" />
+                <button
+                  onClick={() => setAttachments((prev) => prev.filter((x) => x.id !== a.id))}
+                  className="absolute -right-1.5 -top-1.5 flex h-5 w-5 min-h-0 items-center justify-center rounded-full bg-slate-700 text-xs leading-none"
+                  aria-label="Remove photo"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+            {uploadingCount > 0 && (
+              <div className="flex h-16 w-16 items-center justify-center rounded-md bg-slate-800 text-xs text-slate-500">
+                …
+              </div>
+            )}
+          </div>
+        )}
         {error && <p className="text-xs text-red-400">{error}</p>}
-        <button
-          onClick={submitPost}
-          disabled={posting || !draft.trim()}
-          className="w-full rounded-md bg-indigo-600 py-2 text-sm font-medium disabled:opacity-50"
-        >
-          {posting ? "Posting…" : "Post"}
-        </button>
+        <div className="flex gap-2">
+          <label className="flex cursor-pointer items-center justify-center rounded-md bg-slate-800 px-3 text-lg">
+            +
+            <input type="file" accept="image/*" multiple onChange={handleAttach} className="hidden" />
+          </label>
+          <button
+            onClick={submitPost}
+            disabled={posting || uploadingCount > 0 || (!draft.trim() && attachments.length === 0)}
+            className="flex-1 rounded-md bg-indigo-600 py-2 text-sm font-medium disabled:opacity-50"
+          >
+            {posting ? "Posting…" : "Post"}
+          </button>
+        </div>
       </div>
 
       {loading && <p className="text-slate-500 text-sm">Loading…</p>}
@@ -119,6 +266,7 @@ export function Timeline({ onViewProfile }: { onViewProfile: (userId: string) =>
                   <div className="h-8 w-8 rounded-full bg-slate-800" />
                 )}
                 <span className="font-medium">{p.displayName}</span>
+                <OnlineDot lastSeenAt={p.lastSeenAt} />
               </button>
               {p.kind === "like" && p.targetUserId && (
                 <span className="text-slate-400">
@@ -155,39 +303,58 @@ export function Timeline({ onViewProfile }: { onViewProfile: (userId: string) =>
                     🎬
                   </div>
                 )}
-                <button
-                  onClick={() => toggleLike(p.mediaId!)}
-                  className="flex items-center gap-1.5 rounded-full bg-slate-800 px-2.5 py-1.5"
-                >
-                  <FlameIcon active={p.iLiked} className={`h-5 w-5 ${p.iLiked ? "" : "text-slate-300"}`} />
-                  <span className="text-xs font-medium text-slate-100">{p.likeCount}</span>
-                </button>
+                {mediaFlame(
+                  {
+                    id: p.mediaId!,
+                    storageKey: p.mediaStorageKey,
+                    mediaType: p.mediaType ?? "photo",
+                    likeCount: p.likeCount,
+                    iLiked: p.iLiked
+                  },
+                  false
+                )}
               </div>
             )}
 
-            {p.kind === "post" &&
-              p.mediaStorageKey &&
-              (p.mediaType === "photo" ? (
-                <div className="relative">
+            {p.kind === "post" && p.media.length === 1 && (
+              <div className="relative">
+                {p.media[0].mediaType === "photo" ? (
                   <img
-                    src={getMediaUrl(p.mediaStorageKey)}
+                    src={getMediaUrl(p.media[0].storageKey)}
                     alt=""
-                    onClick={() => setLightboxMediaId(p.mediaId)}
+                    onClick={() => setLightboxMediaId(p.media[0].id)}
                     className="aspect-square w-full rounded-md bg-slate-800 object-cover cursor-pointer"
                   />
-                  <button
-                    onClick={() => toggleLike(p.mediaId!)}
-                    className="absolute bottom-2 right-2 flex items-center gap-1.5 rounded-full bg-black/50 px-2.5 py-1.5 backdrop-blur-sm"
-                  >
-                    <FlameIcon active={p.iLiked} className={`h-5 w-5 ${p.iLiked ? "" : "text-slate-200"}`} />
-                    <span className="text-xs font-medium text-slate-100">{p.likeCount}</span>
-                  </button>
-                </div>
-              ) : (
-                <div className="aspect-square w-full rounded-md bg-slate-800 flex items-center justify-center text-2xl">
-                  🎬
-                </div>
-              ))}
+                ) : (
+                  <div className="aspect-square w-full rounded-md bg-slate-800 flex items-center justify-center text-2xl">
+                    🎬
+                  </div>
+                )}
+                {p.media[0].mediaType === "photo" && mediaFlame(p.media[0], true)}
+              </div>
+            )}
+
+            {p.kind === "post" && p.media.length > 1 && (
+              <div className="grid grid-cols-2 gap-1.5">
+                {p.media.map((m) => (
+                  <div key={m.id} className="relative">
+                    {m.mediaType === "photo" ? (
+                      <img
+                        src={getMediaUrl(m.storageKey)}
+                        alt=""
+                        onClick={() => setLightboxMediaId(m.id)}
+                        className="aspect-square w-full rounded-md bg-slate-800 object-cover cursor-pointer"
+                      />
+                    ) : (
+                      <div className="aspect-square w-full rounded-md bg-slate-800 flex items-center justify-center text-2xl">
+                        🎬
+                      </div>
+                    )}
+                    {m.mediaType === "photo" && mediaFlame(m, true)}
+                  </div>
+                ))}
+              </div>
+            )}
 
             {p.kind === "post" &&
               (editingId === p.id ? (
@@ -222,11 +389,27 @@ export function Timeline({ onViewProfile }: { onViewProfile: (userId: string) =>
             {p.kind === "review" && p.body && <p>{p.body}</p>}
 
             <div className="flex items-center justify-between">
-              <span className="text-xs text-slate-500">{new Date(p.createdAt).toLocaleDateString()}</span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-slate-500">{new Date(p.createdAt).toLocaleDateString()}</span>
+                {p.kind === "review" && (
+                  <button onClick={() => toggleReviewLike(p.id)} className="flex items-center gap-1">
+                    <FlameIcon active={p.iLiked} className={`h-4 w-4 ${p.iLiked ? "" : "text-slate-400"}`} />
+                    <span className="text-xs text-slate-400">{p.likeCount}</span>
+                  </button>
+                )}
+                {(p.kind === "post" || p.kind === "review") && (
+                  <button
+                    onClick={() => setOpenCommentsId((cur) => (cur === p.id ? null : p.id))}
+                    className="text-xs text-slate-400"
+                  >
+                    💬 {p.commentCount > 0 ? p.commentCount : ""}
+                  </button>
+                )}
+              </div>
               {p.kind === "post" && p.isMine && editingId !== p.id && (
                 <div className="flex gap-3">
                   <button onClick={() => startEditing(p)} className="text-xs text-slate-500 underline">
-                    {p.mediaId ? (p.body ? "Edit caption" : "Add caption") : "Edit"}
+                    {p.media.length > 0 ? (p.body ? "Edit caption" : "Add caption") : "Edit"}
                   </button>
                   <button onClick={() => remove(p.id)} className="text-xs text-slate-500 underline">
                     Delete
@@ -234,20 +417,35 @@ export function Timeline({ onViewProfile }: { onViewProfile: (userId: string) =>
                 </div>
               )}
             </div>
+
+            {openCommentsId === p.id && (p.kind === "post" || p.kind === "review") && (
+              <CommentThread
+                targetType={p.kind}
+                targetId={p.kind === "post" ? postId(p.id) : reviewId(p.id)}
+                onCountChange={(count) =>
+                  setPosts((prev) => prev.map((x) => (x.id === p.id ? { ...x, commentCount: count } : x)))
+                }
+                onViewProfile={onViewProfile}
+              />
+            )}
           </div>
         ))}
       </div>
 
-      {lightboxPost && lightboxPost.mediaStorageKey && (
+      {lightbox && (
         <Lightbox
-          src={getMediaUrl(lightboxPost.mediaStorageKey)}
+          src={getMediaUrl(lightbox.media.storageKey)}
           onClose={() => setLightboxMediaId(null)}
           like={{
-            count: lightboxPost.likeCount,
-            liked: lightboxPost.iLiked,
-            onToggle: () => toggleLike(lightboxPost.mediaId!)
+            count: lightbox.media.likeCount,
+            liked: lightbox.media.iLiked,
+            onToggle: () => toggleMediaLike(lightbox.media.id)
           }}
         />
+      )}
+
+      {pendingDelete && (
+        <UndoToast message="Post deleted" onUndo={undoPendingDelete} onExpire={commitPendingDelete} />
       )}
     </div>
   );

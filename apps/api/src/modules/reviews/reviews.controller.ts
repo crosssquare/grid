@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Put, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Post, Put, UseGuards } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { ReviewsService } from "./reviews.service";
@@ -34,5 +34,15 @@ export class ReviewsController {
   @Post(":id/report")
   report(@CurrentUser() userId: string, @Param("id", ParseUUIDPipe) id: string, @Body() dto: ReportReviewDto) {
     return this.reviews.report(userId, id, dto);
+  }
+
+  @Post(":id/like")
+  like(@CurrentUser() userId: string, @Param("id", ParseUUIDPipe) id: string) {
+    return this.reviews.like(userId, id);
+  }
+
+  @Delete(":id/like")
+  unlike(@CurrentUser() userId: string, @Param("id", ParseUUIDPipe) id: string) {
+    return this.reviews.unlike(userId, id);
   }
 }

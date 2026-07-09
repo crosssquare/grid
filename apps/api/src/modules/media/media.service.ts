@@ -4,7 +4,7 @@ import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { randomUUID } from "node:crypto";
 import { and, desc, eq } from "drizzle-orm";
 import { DRIZZLE_DB, DrizzleDb } from "../../db/db.module";
-import { feedPosts, media, mediaLikes, profiles } from "../../db/schema";
+import { feedPosts, media, mediaLikes, postMedia, profiles } from "../../db/schema";
 import { HashScanner, NoOpHashScanner } from "./hash-scanner";
 
 @Injectable()
@@ -36,7 +36,7 @@ export class MediaService {
     });
   }
 
-  async upload(userId: string, file: Express.Multer.File, mediaType: "photo" | "video") {
+  async upload(userId: string, file: Express.Multer.File, mediaType: "photo" | "video", skipPost = false) {
     const bucket = this.config.get<string>("s3Bucket");
     if (!bucket) {
       throw new ServiceUnavailableException("S3_BUCKET is not configured yet");
@@ -75,8 +75,11 @@ export class MediaService {
 
     // Every publicly visible upload also shows up in the shared Timeline (PRD §4/§5.5) —
     // the post starts caption-less; the uploader can add one afterward via PUT /posts/:id.
-    if (row.visibility === "public" && row.moderationStatus === "approved") {
-      await this.db.insert(feedPosts).values({ userId, mediaId: row.id });
+    // Skipped when the upload is part of a composed Timeline post (the composer creates
+    // its own single post referencing the uploaded photos, so no duplicate entries).
+    if (!skipPost && row.visibility === "public" && row.moderationStatus === "approved") {
+      const [post] = await this.db.insert(feedPosts).values({ userId, mediaId: row.id }).returning();
+      await this.db.insert(postMedia).values({ postId: post.id, mediaId: row.id, position: 0 });
     }
 
     return row;

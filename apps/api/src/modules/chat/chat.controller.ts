@@ -1,10 +1,11 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Post, Put, UseGuards } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { ChatService } from "./chat.service";
 import { ChatGateway } from "./chat.gateway";
 import { StartConversationDto } from "./dto/start-conversation.dto";
 import { SendMessageDto } from "./dto/send-message.dto";
+import { ReactToMessageDto } from "./dto/react-to-message.dto";
 
 @Controller()
 @UseGuards(JwtAuthGuard)
@@ -38,6 +39,25 @@ export class ChatController {
     const { message, otherUserId } = await this.chat.sendMessage(userId, id, dto.body, dto.mediaId);
     this.gateway.emitToUser(otherUserId, "message:new", { conversationId: id, message });
     return message;
+  }
+
+  @Put("conversations/:id/messages/:messageId/reaction")
+  react(
+    @CurrentUser() userId: string,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("messageId", ParseUUIDPipe) messageId: string,
+    @Body() dto: ReactToMessageDto
+  ) {
+    return this.chat.react(userId, id, messageId, dto.emoji);
+  }
+
+  @Delete("conversations/:id/messages/:messageId/reaction")
+  unreact(
+    @CurrentUser() userId: string,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("messageId", ParseUUIDPipe) messageId: string
+  ) {
+    return this.chat.unreact(userId, id, messageId);
   }
 
   @Post("conversations/meet/:otherUserId")
