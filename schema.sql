@@ -397,3 +397,33 @@ CREATE TABLE data_requests (
     fulfilled_at  TIMESTAMPTZ,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- ---------- Row-Level Security ----------
+-- Supabase exposes every table in `public` through its PostgREST Data API, authenticated
+-- only by the anon key — which is public by design. RLS is therefore the sole boundary
+-- protecting that path, and this app stores highly sensitive data (health status, sexual
+-- preferences, precise location, private photos, DMs).
+--
+-- The API server does NOT use PostgREST or the anon key: it connects directly to Postgres
+-- as `postgres`, which owns these tables and holds BYPASSRLS. So enabling RLS with NO
+-- policies is deliberate — it denies the anon/Data API path entirely while the backend,
+-- which enforces all access control in application code, is unaffected.
+--
+-- Consequence: any NEW table added to `public` must get these two statements too, or it
+-- silently becomes world-readable via the Data API. FORCE is belt-and-braces for the case
+-- where a future owner role lacks BYPASSRLS.
+--
+-- spatial_ref_sys is intentionally excluded: it is a PostGIS system table owned by
+-- supabase_admin (not ours to alter) and holds only public reference data.
+DO $$
+DECLARE t text;
+BEGIN
+    FOR t IN
+        SELECT c.relname
+        FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'public' AND c.relkind = 'r' AND c.relname <> 'spatial_ref_sys'
+    LOOP
+        EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
+        EXECUTE format('ALTER TABLE public.%I FORCE ROW LEVEL SECURITY', t);
+    END LOOP;
+END $$;
