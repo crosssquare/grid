@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, ApiError, ConversationSummary, Tap } from "./api";
+import { api, ApiError, ConversationSummary, getMediaUrl, Tap } from "./api";
 import { timeAgo } from "./presence";
 
 export function ConversationList({
@@ -75,8 +75,17 @@ export function ConversationList({
           <button
             key={c.id}
             onClick={() => onOpen(c)}
-            className="flex w-full items-center justify-between rounded-lg bg-slate-900 px-4 py-3 text-left"
+            className="flex w-full items-center gap-3 rounded-lg bg-slate-900 px-4 py-3 text-left"
           >
+            {c.otherProfilePhotoStorageKey ? (
+              <img
+                src={getMediaUrl(c.otherProfilePhotoStorageKey)}
+                alt=""
+                className="h-10 w-10 shrink-0 rounded-full bg-slate-800 object-cover"
+              />
+            ) : (
+              <div className="h-10 w-10 shrink-0 rounded-full bg-slate-800" />
+            )}
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <p className="font-medium truncate">{c.otherDisplayName}</p>

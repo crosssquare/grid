@@ -61,7 +61,6 @@ export function ProfileView({
   const [profile, setProfile] = useState<ViewedProfile | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [metConfirmed, setMetConfirmed] = useState(false);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [showReport, setShowReport] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -182,14 +181,21 @@ export function ProfileView({
     }
   }
 
-  async function weMet() {
+  // Two-way: un-marking removes only your own confirmation, and can revoke the review
+  // eligibility that depended on it.
+  async function toggleMet() {
+    if (!profile || busy) return;
+    const next = !profile.iConfirmedMet;
+    setProfile({ ...profile, iConfirmedMet: next });
     setBusy(true);
     try {
-      await api.confirmMeet(userId);
-      setMetConfirmed(true);
-      setNotice("Meet confirmed — once they confirm too, you can leave a review.");
+      await (next ? api.confirmMeet(userId) : api.unconfirmMeet(userId));
+      setNotice(
+        next ? "Meet confirmed — once they confirm too, you can leave a review." : null
+      );
       load();
     } catch (err) {
+      setProfile((p) => (p ? { ...p, iConfirmedMet: !next } : p));
       setError(err instanceof ApiError ? err.message : "Something went wrong");
     } finally {
       setBusy(false);
@@ -260,29 +266,76 @@ export function ProfileView({
         </button>
       )}
 
-      <div className="mb-4">
+      <div className="relative mb-4">
         <div className="flex items-center justify-between gap-2">
-          <h1 className="text-xl font-semibold">{profile.displayName}</h1>
-          {profile.lastSeenAt &&
-            (isOnline(profile.lastSeenAt) ? (
-              <span className="flex items-center gap-1.5 text-xs text-emerald-400">
-                <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                Online
-              </span>
-            ) : (
-              <span className="flex items-center gap-1.5 text-xs text-slate-500">
-                <span className="h-2 w-2 rounded-full bg-slate-600" />
-                Online {timeAgo(profile.lastSeenAt)}
-              </span>
-            ))}
+          <h1 className="min-w-0 truncate text-xl font-semibold">{profile.displayName}</h1>
+          {!profile.isSelf && (
+            <div className="flex shrink-0 items-center gap-1">
+              <button
+                onClick={toggleFavorite}
+                disabled={busy}
+                aria-label={profile.isFavorited ? "Remove favourite" : "Add favourite"}
+                className={profile.isFavorited ? "text-amber-400" : "text-slate-500"}
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-6 w-6"
+                  fill={profile.isFavorited ? "currentColor" : "none"}
+                  stroke="currentColor"
+                  strokeWidth={1.75}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="m12 3.5 2.6 5.3 5.9.9-4.25 4.15 1 5.85L12 17l-5.25 2.75 1-5.85L3.5 9.7l5.9-.9L12 3.5Z"
+                  />
+                </svg>
+              </button>
+              {/* A native <select> so tapping opens the real OS menu (same as the Grid
+                  filter chips); the transparent select sits over the ellipsis icon. */}
+              <div className="relative h-6 w-6 text-slate-400">
+                <svg viewBox="0 0 24 24" className="h-6 w-6" fill="currentColor">
+                  <circle cx="5" cy="12" r="1.75" />
+                  <circle cx="12" cy="12" r="1.75" />
+                  <circle cx="19" cy="12" r="1.75" />
+                </svg>
+                <select
+                  aria-label="More"
+                  value=""
+                  onChange={(e) => {
+                    const action = e.target.value;
+                    e.target.value = "";
+                    e.target.blur();
+                    if (action === "report") setShowReport(true);
+                    if (action === "block") block();
+                  }}
+                  className="absolute inset-0 h-full w-full appearance-none opacity-0"
+                >
+                  <option value="">More</option>
+                  <option value="report">Report</option>
+                  <option value="block">Block</option>
+                </select>
+              </div>
+            </div>
+          )}
         </div>
-        <p className="text-xs text-slate-500">
-          Member since {new Date(profile.memberSince).toLocaleDateString()}
-          {profile.verifiedBadgeTier > 0 && <span className="text-indigo-400"> · Verified</span>}
-        </p>
+
+        {profile.lastSeenAt &&
+          (isOnline(profile.lastSeenAt) ? (
+            <p className="flex items-center gap-1.5 text-xs text-emerald-400">
+              <span className="h-2 w-2 rounded-full bg-emerald-400" />
+              Online
+            </p>
+          ) : (
+            <p className="flex items-center gap-1.5 text-xs text-slate-500">
+              <span className="h-2 w-2 rounded-full bg-slate-600" />
+              Last online {timeAgo(profile.lastSeenAt)}
+            </p>
+          ))}
         {!profile.isSelf && profile.distanceMeters != null && (
           <p className="text-xs text-emerald-400">{formatDistance(profile.distanceMeters)}</p>
         )}
+
       </div>
 
       {profile.profilePhotoStorageKey && (
@@ -419,8 +472,8 @@ export function ProfileView({
           <div className="space-y-2">
             {profile.reviews.map((r) => (
               <div key={r.id} className="rounded-md bg-slate-900 p-3 text-sm space-y-1">
-                {r.rating != null && <p className="text-indigo-400">{"★".repeat(r.rating)}</p>}
                 {r.body && <p>{r.body}</p>}
+                {r.rating != null && <p className="text-indigo-400">{"★".repeat(r.rating)}</p>}
                 {reportingReviewId === r.id ? (
                   <div className="pt-1 space-y-1">
                     {REVIEW_REPORT_REASONS.map((reason) => (
@@ -440,9 +493,12 @@ export function ProfileView({
                 ) : (
                   <button
                     onClick={() => setReportingReviewId(r.id)}
-                    className="text-xs text-slate-500 underline"
+                    aria-label="Report review"
+                    className="text-slate-500"
                   >
-                    Report
+                    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 21V4m0 0h11l-1.5 4L16 12H5" />
+                    </svg>
                   </button>
                 )}
                 <CommentThread targetType="review" targetId={r.id} initialComments={r.comments} />
@@ -494,26 +550,27 @@ export function ProfileView({
           <button onClick={message} className="w-full rounded-md bg-indigo-600 py-2.5 font-medium">
             Message
           </button>
-          <div className="flex gap-2">
-            <button onClick={toggleFavorite} disabled={busy} className="flex-1 rounded-md bg-slate-800">
-              {profile.isFavorited ? "Unfavorite" : "Favorite"}
-            </button>
-            <button
-              onClick={weMet}
-              disabled={busy || metConfirmed}
-              className="flex-1 rounded-md bg-slate-800 disabled:opacity-50"
+
+          <button
+            onClick={toggleMet}
+            disabled={busy}
+            role="switch"
+            aria-checked={profile.iConfirmedMet}
+            className="flex w-full items-center justify-between rounded-md bg-slate-800 px-3 py-2.5 text-left text-sm disabled:opacity-50"
+          >
+            <span>We've met in person</span>
+            <span
+              className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                profile.iConfirmedMet ? "bg-indigo-600" : "bg-slate-600"
+              }`}
             >
-              {metConfirmed ? "Meet confirmed" : "We Met"}
-            </button>
-          </div>
-          <div className="flex gap-2">
-            <button onClick={() => setShowReport((v) => !v)} className="flex-1 rounded-md bg-slate-800">
-              Report
-            </button>
-            <button onClick={block} disabled={busy} className="flex-1 rounded-md bg-red-900 text-red-200">
-              Block
-            </button>
-          </div>
+              <span
+                className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${
+                  profile.iConfirmedMet ? "left-[1.375rem]" : "left-0.5"
+                }`}
+              />
+            </span>
+          </button>
 
           {showReport && (
             <div className="rounded-md bg-slate-900 p-3 space-y-2">
@@ -532,6 +589,11 @@ export function ProfileView({
           )}
         </div>
       )}
+
+      <p className="mt-6 text-xs text-slate-500">
+        Member since {new Date(profile.memberSince).toLocaleDateString()}
+        {profile.verifiedBadgeTier > 0 && <span className="text-indigo-400"> · Verified</span>}
+      </p>
 
       {profile.isSelf && onEdit && (
         <button

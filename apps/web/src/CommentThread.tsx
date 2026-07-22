@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, Comment } from "./api";
 import { timeAgo } from "./presence";
 
@@ -20,6 +20,7 @@ export function CommentThread({
   const [comments, setComments] = useState<Comment[] | null>(initialComments ?? null);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   const myUserId = localStorage.getItem("userId");
 
   useEffect(() => {
@@ -58,20 +59,33 @@ export function CommentThread({
 
   return (
     <div className="space-y-2 border-t border-slate-800 pt-2">
+      {/* Tapping a comment focuses the composer to reply, same as the Timeline. */}
       {(comments ?? []).map((c) => (
-        <div key={c.id} className="text-sm">
+        <div key={c.id} onClick={() => inputRef.current?.focus()} className="text-sm cursor-pointer">
           <button
-            onClick={() => onViewProfile?.(c.authorId)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onViewProfile?.(c.authorId);
+            }}
             className="font-medium text-slate-200"
           >
             {c.authorDisplayName}
           </button>{" "}
           <span className="text-slate-300">{c.body}</span>
-          <span className="ml-2 text-xs text-slate-500">
+          <span className="ml-2 inline-flex items-center gap-1.5 text-xs text-slate-500">
             {timeAgo(c.createdAt)}
             {c.authorId === myUserId && (
-              <button onClick={() => remove(c.id)} className="ml-2 text-slate-500 underline">
-                Delete
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  remove(c.id);
+                }}
+                aria-label="Delete comment"
+                className="text-slate-500"
+              >
+                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" d="M4 7h16M10 11v6M14 11v6M5 7l1 13h12l1-13M9 7V4h6v3" />
+                </svg>
               </button>
             )}
           </span>
@@ -79,6 +93,7 @@ export function CommentThread({
       ))}
       <div className="flex gap-2">
         <input
+          ref={inputRef}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && submit()}

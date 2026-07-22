@@ -64,4 +64,9 @@ export class ChatController {
   confirmMeet(@CurrentUser() userId: string, @Param("otherUserId", ParseUUIDPipe) otherUserId: string) {
     return this.chat.confirmMeet(userId, otherUserId);
   }
+
+  @Delete("conversations/meet/:otherUserId")
+  unconfirmMeet(@CurrentUser() userId: string, @Param("otherUserId", ParseUUIDPipe) otherUserId: string) {
+    return this.chat.unconfirmMeet(userId, otherUserId);
+  }
 }

@@ -7,6 +7,7 @@ import { reverseGeocode } from "./geo";
 // moved and the stored location is stale.
 function LocationSync() {
   const [label, setLabel] = useState<string | null>(null);
+  const [shared, setShared] = useState(false);
   const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
@@ -14,6 +15,7 @@ function LocationSync() {
       .getMyProfile()
       .then((p) => {
         if (p.locationShared && p.latitude != null && p.longitude != null) {
+          setShared(true);
           reverseGeocode(p.latitude, p.longitude).then(setLabel);
         }
       })
@@ -33,6 +35,7 @@ function LocationSync() {
             latitude: pos.coords.latitude,
             longitude: pos.coords.longitude
           });
+          setShared(true);
           setLabel(await reverseGeocode(pos.coords.latitude, pos.coords.longitude));
         } catch {
           // keep the old label; nothing actionable to show up here
@@ -45,12 +48,26 @@ function LocationSync() {
     );
   }
 
+  // TODO: tapping this should open a bottom sheet to change or hide the location —
+  // for now it re-syncs directly. The green dot means a location is currently shared.
   return (
     <button
       onClick={sync}
-      className="max-w-[50%] truncate text-xs text-emerald-400"
+      aria-label={label ? `Location: ${label}. Tap to re-sync.` : "Sync location"}
+      title={label ?? "Sync location"}
+      className={`relative text-slate-300 ${syncing ? "opacity-50" : ""}`}
     >
-      {syncing ? "Syncing…" : (label ?? "Sync location")}
+      <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={1.75}>
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 1 1 16 0Z"
+        />
+        <circle cx="12" cy="10" r="2.5" />
+      </svg>
+      {shared && (
+        <span className="absolute right-0 top-0 h-2 w-2 rounded-full bg-emerald-400 ring-2 ring-slate-950" />
+      )}
     </button>
   );
 }
@@ -64,8 +81,9 @@ export function TopBar({ onUpgrade, onNotifications }: { onUpgrade: () => void; 
       >
         Upgrade
       </button>
-      <LocationSync />
-      <button onClick={onNotifications} aria-label="Notifications" className="text-slate-300">
+      <div className="flex items-center gap-3">
+        <LocationSync />
+        <button onClick={onNotifications} aria-label="Notifications" className="text-slate-300">
         <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={1.75}>
           <path
             strokeLinecap="round"
@@ -73,8 +91,9 @@ export function TopBar({ onUpgrade, onNotifications }: { onUpgrade: () => void; 
             d="M18 8a6 6 0 1 0-12 0c0 5-2 6-2 6h16s-2-1-2-6Z"
           />
           <path strokeLinecap="round" strokeLinejoin="round" d="M10 21a2 2 0 0 0 4 0" />
-        </svg>
-      </button>
+          </svg>
+        </button>
+      </div>
     </div>
   );
 }

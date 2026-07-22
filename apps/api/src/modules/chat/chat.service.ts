@@ -10,6 +10,7 @@ interface ConversationRow extends Record<string, unknown> {
   other_user_id: string;
   other_display_name: string;
   other_online_status: string;
+  other_profile_photo_storage_key: string | null;
   last_message_body: string | null;
 }
 
@@ -62,9 +63,11 @@ export class ChatService {
       SELECT
         c.id, c.status, c.last_message_at,
         p.user_id AS other_user_id, p.display_name AS other_display_name, p.online_status AS other_online_status,
+        pm.storage_key AS other_profile_photo_storage_key,
         (SELECT body FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) AS last_message_body
       FROM conversations c
       JOIN profiles p ON p.user_id = (CASE WHEN c.user_a_id = ${userId} THEN c.user_b_id ELSE c.user_a_id END)
+      LEFT JOIN media pm ON pm.id = p.profile_photo_media_id
       WHERE (c.user_a_id = ${userId} OR c.user_b_id = ${userId})
         AND NOT EXISTS (
           SELECT 1 FROM blocks b
@@ -81,6 +84,7 @@ export class ChatService {
       otherUserId: row.other_user_id,
       otherDisplayName: row.other_display_name,
       otherOnlineStatus: row.other_online_status,
+      otherProfilePhotoStorageKey: row.other_profile_photo_storage_key,
       lastMessageBody: row.last_message_body
     }));
   }
@@ -188,5 +192,35 @@ export class ChatService {
       .onConflictDoNothing()
       .returning();
     return confirmation ?? { alreadyConfirmed: true };
+  }
+
+  // Un-marking only ever removes the caller's own confirmation, never the other side's.
+  // Note this can revoke review eligibility that depended on the meet being confirmed.
+  async unconfirmMeet(userId: string, otherUserId: string) {
+    const conversation = await this.getOrCreate(userId, otherUserId);
+    await this.db
+      .delete(meetConfirmations)
+      .where(
+        and(
+          eq(meetConfirmations.conversationId, conversation.id),
+          eq(meetConfirmations.confirmedById, userId)
+        )
+      );
+    return { confirmed: false };
+  }
+
+  async hasConfirmedMeet(userId: string, otherUserId: string) {
+    const [userAId, userBId] = [userId, otherUserId].sort();
+    const conversation = await this.db.query.conversations.findFirst({
+      where: and(eq(conversations.userAId, userAId), eq(conversations.userBId, userBId))
+    });
+    if (!conversation) return false;
+    const row = await this.db.query.meetConfirmations.findFirst({
+      where: and(
+        eq(meetConfirmations.conversationId, conversation.id),
+        eq(meetConfirmations.confirmedById, userId)
+      )
+    });
+    return Boolean(row);
   }
 }

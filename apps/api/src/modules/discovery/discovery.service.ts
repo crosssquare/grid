@@ -99,6 +99,13 @@ export class DiscoveryService {
         sql`EXISTS (SELECT 1 FROM profile_hashtags ph JOIN hashtags h ON h.id = ph.hashtag_id WHERE ph.user_id = p.user_id AND h.tag = ${query.hashtag})`
       );
     }
+    // Free-text search spans the whole profile — name, bio and hashtags — not just #tags.
+    if (query.search) {
+      const term = `%${query.search.replace(/^#/, "")}%`;
+      conditions.push(
+        sql`(p.display_name ILIKE ${term} OR p.bio ILIKE ${term} OR EXISTS (SELECT 1 FROM profile_hashtags ph JOIN hashtags h ON h.id = ph.hashtag_id WHERE ph.user_id = p.user_id AND h.tag ILIKE ${term}))`
+      );
+    }
 
     const whereClause = sql.join(conditions, sql` AND `);
     const sortByDistance = query.sort !== "new";

@@ -29,4 +29,9 @@ export class DiscoveryQueryDto {
   @IsString()
   @Length(1, 50)
   hashtag?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 100)
+  search?: string;
 }

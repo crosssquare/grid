@@ -108,6 +108,7 @@ export const api = {
   sendMessage: (conversationId: string, body: string) =>
     request<Message>(`/conversations/${conversationId}/messages`, { method: "POST", body: JSON.stringify({ body }) }),
   confirmMeet: (otherUserId: string) => request(`/conversations/meet/${otherUserId}`, { method: "POST" }),
+  unconfirmMeet: (otherUserId: string) => request(`/conversations/meet/${otherUserId}`, { method: "DELETE" }),
   getViewedProfile: (userId: string) => request<ViewedProfile>(`/profiles/${userId}`),
   addFavorite: (userId: string) => request(`/favorites/${userId}`, { method: "POST" }),
   removeFavorite: (userId: string) => request(`/favorites/${userId}`, { method: "DELETE" }),
@@ -213,6 +214,7 @@ export interface ViewedProfile extends Profile {
   isSelf: boolean;
   onlineStatus: string;
   verifiedBadgeTier: number;
+  iConfirmedMet: boolean;
 }
 
 export interface Review {
@@ -305,6 +307,7 @@ export interface DiscoveryParams {
   bodyType?: string;
   healthStatus?: string;
   hashtag?: string;
+  search?: string;
 }
 
 export interface DiscoveryProfile {
@@ -347,6 +350,7 @@ export interface ConversationSummary {
   otherUserId: string;
   otherDisplayName: string;
   otherOnlineStatus: string;
+  otherProfilePhotoStorageKey: string | null;
   lastMessageBody: string | null;
 }
 

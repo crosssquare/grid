@@ -13,7 +13,9 @@ import {
   blocks,
   profileViews,
   feedPosts,
-  comments
+  comments,
+  conversations,
+  meetConfirmations
 } from "../../db/schema";
 import { UpsertProfileDto } from "./dto/upsert-profile.dto";
 import { ReviewsService } from "../reviews/reviews.service";
@@ -142,10 +144,26 @@ export class ProfilesService {
     let canReview = false;
     let myReviewStatus: string | null = null;
     let iLikedMedia = false;
+    let iConfirmedMet = false;
     let latitude: number | null = null;
     let longitude: number | null = null;
     let distanceMeters: number | null = null;
     if (!isSelf) {
+      // Drives the "We've met in person" toggle — the viewer's own confirmation only.
+      const [convA, convB] = [viewerId, targetUserId].sort();
+      const conversation = await this.db.query.conversations.findFirst({
+        where: and(eq(conversations.userAId, convA), eq(conversations.userBId, convB))
+      });
+      if (conversation) {
+        const confirmation = await this.db.query.meetConfirmations.findFirst({
+          where: and(
+            eq(meetConfirmations.conversationId, conversation.id),
+            eq(meetConfirmations.confirmedById, viewerId)
+          )
+        });
+        iConfirmedMet = Boolean(confirmation);
+      }
+
       const favorite = await this.db.query.favorites.findFirst({
         where: and(eq(favorites.userId, viewerId), eq(favorites.favoriteId, targetUserId))
       });
@@ -236,6 +254,7 @@ export class ProfilesService {
       isFavorited,
       canReview,
       myReviewStatus,
+      iConfirmedMet,
       isSelf
     };
   }

@@ -16,6 +16,16 @@ export function DiscoveryGrid({ onViewProfile }: { onViewProfile: (userId: strin
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<DiscoveryParams>({ sort: "distance" });
+  const [search, setSearch] = useState("");
+
+  // Debounced so typing doesn't fire a request per keystroke.
+  useEffect(() => {
+    const t = setTimeout(
+      () => setFilters((f) => ({ ...f, search: search.trim() || undefined })),
+      300
+    );
+    return () => clearTimeout(t);
+  }, [search]);
 
   useEffect(() => {
     setLoading(true);
@@ -48,8 +58,11 @@ export function DiscoveryGrid({ onViewProfile }: { onViewProfile: (userId: strin
         </button>
         <select
           value={filters.role ?? ""}
-          onChange={(e) => setFilters((f) => ({ ...f, role: e.target.value || undefined }))}
-          className="shrink-0 rounded-full bg-slate-900 px-4 text-xs"
+          onChange={(e) => {
+            setFilters((f) => ({ ...f, role: e.target.value || undefined }));
+            e.target.blur();
+          }}
+          className="shrink-0 appearance-none rounded-full bg-slate-900 px-4 text-xs outline-none focus:outline-none focus:ring-0"
         >
           <option value="">Any role</option>
           {ROLES.map((r) => (
@@ -60,8 +73,11 @@ export function DiscoveryGrid({ onViewProfile }: { onViewProfile: (userId: strin
         </select>
         <select
           value={filters.bodyType ?? ""}
-          onChange={(e) => setFilters((f) => ({ ...f, bodyType: e.target.value || undefined }))}
-          className="shrink-0 rounded-full bg-slate-900 px-4 text-xs"
+          onChange={(e) => {
+            setFilters((f) => ({ ...f, bodyType: e.target.value || undefined }));
+            e.target.blur();
+          }}
+          className="shrink-0 appearance-none rounded-full bg-slate-900 px-4 text-xs outline-none focus:outline-none focus:ring-0"
         >
           <option value="">Any body type</option>
           {BODY_TYPES.map((b) => (
@@ -70,11 +86,25 @@ export function DiscoveryGrid({ onViewProfile }: { onViewProfile: (userId: strin
             </option>
           ))}
         </select>
+      </div>
+
+      {/* Full-width search under the chips — matches name, bio and hashtags, not just #tags. */}
+      <div className="relative mb-4">
+        <svg
+          viewBox="0 0 24 24"
+          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <circle cx="11" cy="11" r="7" />
+          <path strokeLinecap="round" d="m20 20-3.5-3.5" />
+        </svg>
         <input
-          placeholder="#hashtag"
-          value={filters.hashtag ?? ""}
-          onChange={(e) => setFilters((f) => ({ ...f, hashtag: e.target.value || undefined }))}
-          className="shrink-0 w-28 rounded-full bg-slate-900 px-4 text-xs outline-none focus:ring-2 focus:ring-slate-500"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search name, bio or #tag"
+          className="w-full rounded-full bg-slate-900 py-2 pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-slate-700"
         />
       </div>
 
