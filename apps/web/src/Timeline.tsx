@@ -204,13 +204,29 @@ export function Timeline({ onViewProfile }: { onViewProfile: (userId: string) =>
       <h1 className="text-xl font-semibold mb-4">Timeline</h1>
 
       <div className="rounded-md bg-slate-900 p-3 space-y-2 mb-4">
-        <textarea
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder="Update your status"
-          rows={2}
-          className="w-full rounded-md bg-slate-800 p-2 text-sm outline-none"
-        />
+        {/* The photo picker sits inside the field, bottom-right, so it reads as part of
+            the status you're writing rather than a separate control next to Post. */}
+        <div className="relative">
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="Update your status"
+            rows={2}
+            className="block w-full rounded-md bg-slate-800 p-2 pr-11 text-sm outline-none"
+          />
+          <label
+            aria-label="Add photo"
+            title="Add photo"
+            className="absolute bottom-2 right-2 cursor-pointer text-slate-400"
+          >
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.75}>
+              <rect x="3" y="4" width="18" height="16" rx="2" />
+              <circle cx="8.5" cy="9.5" r="1.5" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="m4 17 4.5-4.5 3 3L15 12l5 5" />
+            </svg>
+            <input type="file" accept="image/*" multiple onChange={handleAttach} className="hidden" />
+          </label>
+        </div>
         {(attachments.length > 0 || uploadingCount > 0) && (
           <div className="flex flex-wrap gap-2">
             {attachments.map((a) => (
@@ -233,19 +249,13 @@ export function Timeline({ onViewProfile }: { onViewProfile: (userId: string) =>
           </div>
         )}
         {error && <p className="text-xs text-red-400">{error}</p>}
-        <div className="flex gap-2">
-          <label className="flex cursor-pointer items-center justify-center rounded-md bg-slate-800 px-3 text-lg">
-            +
-            <input type="file" accept="image/*" multiple onChange={handleAttach} className="hidden" />
-          </label>
-          <button
-            onClick={submitPost}
-            disabled={posting || uploadingCount > 0 || (!draft.trim() && attachments.length === 0)}
-            className="flex-1 rounded-md bg-indigo-600 py-2 text-sm font-medium disabled:opacity-50"
-          >
-            {posting ? "Posting…" : "Post"}
-          </button>
-        </div>
+        <button
+          onClick={submitPost}
+          disabled={posting || uploadingCount > 0 || (!draft.trim() && attachments.length === 0)}
+          className="w-full rounded-md bg-indigo-600 py-2 text-sm font-medium disabled:opacity-50"
+        >
+          {posting ? "Posting…" : "Post"}
+        </button>
       </div>
 
       {loading && <p className="text-slate-500 text-sm">Loading…</p>}

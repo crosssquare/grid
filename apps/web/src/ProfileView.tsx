@@ -298,7 +298,9 @@ export function ProfileView({
                   }}
                   className="absolute inset-0 h-full w-full appearance-none opacity-0"
                 >
-                  <option value="">More</option>
+                  {/* `hidden` keeps this as the select's value without pre-selecting
+                      Report or Block, and excludes it from the native picker list. */}
+                  <option value="" hidden />
                   <option value="report">Report</option>
                   <option value="block">Block</option>
                 </select>
@@ -559,10 +561,6 @@ export function ProfileView({
 
       {!profile.isSelf && (
         <div className="space-y-2">
-          <button onClick={message} className="w-full rounded-md bg-indigo-600 py-2.5 font-medium">
-            Message
-          </button>
-
           <button
             onClick={toggleMet}
             disabled={busy}
@@ -614,6 +612,17 @@ export function ProfileView({
         >
           Edit
         </button>
+      )}
+
+      {/* Message stays reachable however far down the profile you've scrolled. A viewed
+          profile renders without the NavBar (see App.tsx), so this only has to clear
+          the home indicator, not a tab bar. */}
+      {!profile.isSelf && (
+        <div className="fixed bottom-0 left-0 right-0 z-30 bg-slate-950/90 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-sm">
+          <button onClick={message} className="w-full rounded-md bg-indigo-600 py-2.5 font-medium">
+            Message
+          </button>
+        </div>
       )}
 
       {lightboxSrc && <Lightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />}

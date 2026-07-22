@@ -19,3 +19,12 @@ body {
     min-height: 48px;
   }
 }
+
+/* iOS zooms the viewport when a focused field renders under 16px. The app styles
+   fields with text-sm (14px), so pin the effective size — !important because the
+   Tailwind utility out-specifies a bare element selector. <select> is excluded:
+   it opens a picker, not a keyboard, so it never triggers the zoom. */
+input,
+textarea {
+  font-size: 16px !important;
+}

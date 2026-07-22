@@ -55,7 +55,7 @@ function LocationSync() {
       onClick={sync}
       aria-label={label ? `Location: ${label}. Tap to re-sync.` : "Sync location"}
       title={label ?? "Sync location"}
-      className={`relative text-slate-300 ${syncing ? "opacity-50" : ""}`}
+      className={`text-slate-300 ${syncing ? "opacity-50" : ""}`}
     >
       <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={1.75}>
         <path
@@ -63,11 +63,10 @@ function LocationSync() {
           strokeLinejoin="round"
           d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 1 1 16 0Z"
         />
-        <circle cx="12" cy="10" r="2.5" />
+        {/* The pin's eye doubles as the shared-location indicator: filled emerald
+            when a location is currently shared, hollow otherwise. */}
+        <circle cx="12" cy="10" r="2.5" fill={shared ? "#34d399" : "none"} stroke={shared ? "#34d399" : "currentColor"} />
       </svg>
-      {shared && (
-        <span className="absolute right-0 top-0 h-2 w-2 rounded-full bg-emerald-400 ring-2 ring-slate-950" />
-      )}
     </button>
   );
 }
