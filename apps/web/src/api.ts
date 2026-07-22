@@ -148,6 +148,7 @@ export const api = {
     if (skipPost) form.append("skipPost", "true");
     return request<MediaItem>("/media", { method: "POST", body: form });
   },
+  deleteMedia: (mediaId: string) => request(`/media/${mediaId}`, { method: "DELETE" }),
   setProfilePhoto: (mediaId: string) => request(`/media/${mediaId}/profile-photo`, { method: "PUT" }),
   likeMedia: (mediaId: string) => request(`/media/${mediaId}/like`, { method: "POST" }),
   unlikeMedia: (mediaId: string) => request(`/media/${mediaId}/like`, { method: "DELETE" }),
@@ -234,6 +235,8 @@ export interface ViewedProfile extends Profile {
   distanceMeters: number | null;
   lastSeenAt: string | null;
   statusText: string | null;
+  statusPostId: string | null;
+  statusUpdatedAt: string | null;
   isSelf: boolean;
   onlineStatus: string;
   verifiedBadgeTier: number;

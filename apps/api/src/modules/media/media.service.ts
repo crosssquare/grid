@@ -1,10 +1,16 @@
-import { Inject, Injectable, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
+import {
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  ServiceUnavailableException
+} from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { randomUUID } from "node:crypto";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { DRIZZLE_DB, DrizzleDb } from "../../db/db.module";
-import { feedPosts, media, mediaLikes, postMedia, profiles } from "../../db/schema";
+import { comments, feedPosts, media, mediaLikes, postMedia, profiles } from "../../db/schema";
 import { HashScanner, NoOpHashScanner } from "./hash-scanner";
 
 @Injectable()
@@ -64,9 +70,10 @@ export class MediaService {
         mediaType,
         storageKey,
         hashScanResult: scan.result,
-        // No private-album UI exists yet in Phase 0 — everything uploaded through this
-        // endpoint goes straight to the public gallery.
-        visibility: "public",
+        // A composer attachment (skipPost) is a DRAFT: it must not appear in the gallery
+        // until the post is actually submitted, so it lands private and PostsService.create
+        // publishes it. Direct gallery uploads have no draft step and go public immediately.
+        visibility: skipPost ? "private" : "public",
         // No human moderation queue exists yet in Phase 0 (that's a later Trust & Safety step) —
         // a clear hash scan is enough to approve for the two-person alpha test.
         moderationStatus: scan.result === "clear" ? "approved" : "csam_flagged"
@@ -95,6 +102,46 @@ export class MediaService {
       .from(media)
       .where(and(eq(media.userId, userId), eq(media.visibility, "public"), eq(media.moderationStatus, "approved")))
       .orderBy(desc(media.createdAt));
+  }
+
+  // Deleting a photo has to unpick everything pointing at it: none of these tables declare
+  // a FK to media, so nothing cascades. A post left with no body and no other photo is
+  // deleted outright (it would render as an empty Timeline card); otherwise it just loses
+  // this photo. The S3 object is left in place — object lifecycle is a later cleanup job.
+  async remove(userId: string, mediaId: string) {
+    const row = await this.db.query.media.findFirst({ where: eq(media.id, mediaId) });
+    if (!row) throw new NotFoundException("Photo not found");
+    if (row.userId !== userId) throw new ForbiddenException("Not your photo");
+
+    const attachments = await this.db.query.postMedia.findMany({ where: eq(postMedia.mediaId, mediaId) });
+    await this.db.delete(postMedia).where(eq(postMedia.mediaId, mediaId));
+
+    const affectedPostIds = new Set(attachments.map((a) => a.postId));
+    const legacyPosts = await this.db.query.feedPosts.findMany({ where: eq(feedPosts.mediaId, mediaId) });
+    for (const p of legacyPosts) affectedPostIds.add(p.id);
+
+    for (const postId of affectedPostIds) {
+      const post = await this.db.query.feedPosts.findFirst({ where: eq(feedPosts.id, postId) });
+      if (!post) continue;
+      const remaining = await this.db.query.postMedia.findMany({ where: eq(postMedia.postId, postId) });
+      if (!post.body?.trim() && remaining.length === 0) {
+        await this.db.delete(feedPosts).where(eq(feedPosts.id, postId));
+        await this.db.delete(comments).where(sql`${comments.targetType} = 'post' AND ${comments.targetId} = ${postId}`);
+      } else if (post.mediaId === mediaId) {
+        await this.db
+          .update(feedPosts)
+          .set({ mediaId: remaining[0]?.mediaId ?? null })
+          .where(eq(feedPosts.id, postId));
+      }
+    }
+
+    await this.db
+      .update(profiles)
+      .set({ profilePhotoMediaId: null })
+      .where(and(eq(profiles.userId, userId), eq(profiles.profilePhotoMediaId, mediaId)));
+    await this.db.delete(mediaLikes).where(eq(mediaLikes.mediaId, mediaId));
+    await this.db.delete(media).where(eq(media.id, mediaId));
+    return { deleted: true };
   }
 
   async setProfilePhoto(userId: string, mediaId: string) {

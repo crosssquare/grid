@@ -59,6 +59,13 @@ export function Timeline({ onViewProfile }: { onViewProfile: (userId: string) =>
     }
   }
 
+  // The upload already exists server-side as a private draft, so dropping it from the
+  // composer has to delete it too — otherwise it lingers as an unreferenced row.
+  function removeAttachment(mediaId: string) {
+    setAttachments((prev) => prev.filter((x) => x.id !== mediaId));
+    void api.deleteMedia(mediaId).catch(() => undefined);
+  }
+
   async function submitPost() {
     if (!draft.trim() && attachments.length === 0) return;
     setPosting(true);
@@ -233,7 +240,7 @@ export function Timeline({ onViewProfile }: { onViewProfile: (userId: string) =>
               <div key={a.id} className="relative">
                 <img src={getMediaUrl(a.storageKey)} alt="" className="h-16 w-16 rounded-md bg-slate-800 object-cover" />
                 <button
-                  onClick={() => setAttachments((prev) => prev.filter((x) => x.id !== a.id))}
+                  onClick={() => removeAttachment(a.id)}
                   className="absolute -right-1.5 -top-1.5 flex h-5 w-5 min-h-0 items-center justify-center rounded-full bg-slate-700 text-xs leading-none"
                   aria-label="Remove photo"
                 >

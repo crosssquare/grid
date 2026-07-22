@@ -229,7 +229,11 @@ export class ProfilesService {
       age: computeAge(user?.dateOfBirth ?? null),
       memberSince: user?.createdAt ?? null,
       lastSeenAt: user?.lastSeenAt ?? null,
+      // The id and timestamp travel with the text so the owner can edit or delete the
+      // status in place. All three are null together when the latest post is photo-only.
       statusText: latestPost?.body?.trim() || null,
+      statusPostId: latestPost?.body?.trim() ? latestPost.id : null,
+      statusUpdatedAt: latestPost?.body?.trim() ? latestPost.createdAt : null,
       hashtags: tags,
       profilePhotoStorageKey,
       mediaLikeCount,

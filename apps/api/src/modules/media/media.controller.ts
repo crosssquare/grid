@@ -49,6 +49,11 @@ export class MediaController {
     return this.media.listForUser(userId);
   }
 
+  @Delete(":id")
+  remove(@CurrentUser() userId: string, @Param("id", ParseUUIDPipe) id: string) {
+    return this.media.remove(userId, id);
+  }
+
   @Put(":id/profile-photo")
   setProfilePhoto(@CurrentUser() userId: string, @Param("id", ParseUUIDPipe) id: string) {
     return this.media.setProfilePhoto(userId, id);

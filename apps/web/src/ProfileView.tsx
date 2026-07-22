@@ -61,7 +61,8 @@ export function ProfileView({
   const [profile, setProfile] = useState<ViewedProfile | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  // Carries the media id alongside the url so the lightbox can offer delete on your own photos.
+  const [lightbox, setLightbox] = useState<{ src: string; mediaId?: string | null } | null>(null);
   const [showReport, setShowReport] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [reviewRating, setReviewRating] = useState(0);
@@ -72,6 +73,7 @@ export function ProfileView({
   const [notFound, setNotFound] = useState(false);
   const [statusDraft, setStatusDraft] = useState("");
   const [postingStatus, setPostingStatus] = useState(false);
+  const [editingStatus, setEditingStatus] = useState(false);
 
   function load() {
     setError(null);
@@ -102,14 +104,34 @@ export function ProfileView({
     if (!statusDraft.trim() || postingStatus) return;
     setPostingStatus(true);
     try {
-      await api.createPost(statusDraft.trim());
-      setProfile((p) => (p ? { ...p, statusText: statusDraft.trim() } : p));
+      // Editing rewrites the existing Timeline post rather than stacking a new one.
+      if (editingStatus && profile?.statusPostId) {
+        await api.updatePost(profile.statusPostId, statusDraft.trim());
+      } else {
+        await api.createPost(statusDraft.trim());
+      }
       setStatusDraft("");
+      setEditingStatus(false);
+      load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Couldn't update status");
     } finally {
       setPostingStatus(false);
     }
+  }
+
+  // Deleting the status deletes the Timeline post behind it, which drops the profile
+  // back to the empty composer.
+  async function deleteStatus() {
+    const postId = profile?.statusPostId;
+    if (!postId || !profile) return;
+    setProfile({ ...profile, statusText: null, statusPostId: null, statusUpdatedAt: null });
+    try {
+      await api.deletePost(postId);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Couldn't delete status");
+    }
+    load();
   }
 
   async function toggleLikeProfilePhoto() {
@@ -142,6 +164,17 @@ export function ProfileView({
       setError(err instanceof ApiError ? err.message : "Upload failed");
     } finally {
       setUploading(false);
+    }
+  }
+
+  async function deletePhoto(mediaId: string) {
+    try {
+      await api.deleteMedia(mediaId);
+      setLightbox(null);
+      load();
+    } catch (err) {
+      setLightbox(null);
+      setError(err instanceof ApiError ? err.message : "Couldn't delete photo");
     }
   }
 
@@ -357,7 +390,9 @@ export function ProfileView({
           <img
             src={getMediaUrl(profile.profilePhotoStorageKey)}
             alt=""
-            onClick={() => setLightboxSrc(getMediaUrl(profile.profilePhotoStorageKey!))}
+            onClick={() =>
+              setLightbox({ src: getMediaUrl(profile.profilePhotoStorageKey!), mediaId: profile.profilePhotoMediaId })
+            }
             className="w-full aspect-square rounded-lg bg-slate-900 object-cover"
           />
           {!profile.isSelf && (
@@ -379,28 +414,80 @@ export function ProfileView({
       )}
 
       {!profile.isSelf && profile.statusText && (
-        <p className="mb-4 text-sm italic text-slate-300">"{profile.statusText}"</p>
-      )}
-
-      {profile.isSelf && (
-        <div className="mb-4 rounded-md bg-slate-900 p-3 space-y-2">
-          {profile.statusText && <p className="text-sm italic text-slate-300">"{profile.statusText}"</p>}
-          <textarea
-            value={statusDraft}
-            onChange={(e) => setStatusDraft(e.target.value)}
-            placeholder="Update your status"
-            rows={2}
-            className="w-full rounded-md bg-slate-800 p-2 text-sm outline-none"
-          />
-          <button
-            onClick={submitStatus}
-            disabled={postingStatus || !statusDraft.trim()}
-            className="w-full rounded-md bg-indigo-600 py-2 text-sm font-medium disabled:opacity-50"
-          >
-            {postingStatus ? "Posting…" : "Post"}
-          </button>
+        <div className="mb-4">
+          <p className="break-words text-sm font-semibold text-slate-100">{profile.statusText}</p>
+          {profile.statusUpdatedAt && (
+            <p className="mt-0.5 text-xs text-slate-500">{timeAgo(profile.statusUpdatedAt)}</p>
+          )}
         </div>
       )}
+
+      {/* Your own status: once set it's just the status itself — text, when it went up,
+          and edit/delete. The composer only comes back when there's no status to show. */}
+      {profile.isSelf &&
+        (profile.statusText && !editingStatus ? (
+          <div className="mb-4 flex items-start gap-2 rounded-md bg-slate-900 p-3">
+            <div className="min-w-0 flex-1">
+              <p className="break-words text-sm font-semibold text-slate-100">{profile.statusText}</p>
+              {profile.statusUpdatedAt && (
+                <p className="mt-0.5 text-xs text-slate-500">{timeAgo(profile.statusUpdatedAt)}</p>
+              )}
+            </div>
+            <button
+              onClick={() => {
+                setStatusDraft(profile.statusText ?? "");
+                setEditingStatus(true);
+              }}
+              aria-label="Edit status"
+              title="Edit status"
+              className="shrink-0 text-slate-400"
+            >
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.75}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 20h4l10-10a2.83 2.83 0 1 0-4-4L4 16v4Z" />
+              </svg>
+            </button>
+            <button
+              onClick={deleteStatus}
+              aria-label="Delete status"
+              title="Delete status"
+              className="shrink-0 text-slate-400"
+            >
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.75}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />
+              </svg>
+            </button>
+          </div>
+        ) : (
+          <div className="mb-4 rounded-md bg-slate-900 p-3 space-y-2">
+            <textarea
+              value={statusDraft}
+              onChange={(e) => setStatusDraft(e.target.value)}
+              placeholder="Update your status"
+              rows={2}
+              className="block w-full rounded-md bg-slate-800 p-2 text-sm outline-none"
+            />
+            <div className="flex gap-2">
+              {editingStatus && (
+                <button
+                  onClick={() => {
+                    setEditingStatus(false);
+                    setStatusDraft("");
+                  }}
+                  className="flex-1 rounded-md bg-slate-800 py-2 text-sm font-medium"
+                >
+                  Cancel
+                </button>
+              )}
+              <button
+                onClick={submitStatus}
+                disabled={postingStatus || !statusDraft.trim()}
+                className="flex-1 rounded-md bg-indigo-600 py-2 text-sm font-medium disabled:opacity-50"
+              >
+                {postingStatus ? "Saving…" : editingStatus ? "Save" : "Post"}
+              </button>
+            </div>
+          </div>
+        ))}
 
       {(() => {
         const rest = profile.gallery.filter((m) => m.storageKey !== profile.profilePhotoStorageKey);
@@ -414,7 +501,7 @@ export function ProfileView({
                   key={m.id}
                   src={getMediaUrl(m.storageKey)}
                   alt=""
-                  onClick={() => setLightboxSrc(getMediaUrl(m.storageKey))}
+                  onClick={() => setLightbox({ src: getMediaUrl(m.storageKey), mediaId: m.id })}
                   className="aspect-square rounded-md bg-slate-900 object-cover cursor-pointer"
                 />
               ) : (
@@ -625,7 +712,19 @@ export function ProfileView({
         </div>
       )}
 
-      {lightboxSrc && <Lightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />}
+      {lightbox && (
+        <Lightbox
+          src={lightbox.src}
+          onClose={() => setLightbox(null)}
+          onDelete={
+            profile.isSelf && lightbox.mediaId
+              ? async () => {
+                  await deletePhoto(lightbox.mediaId!);
+                }
+              : undefined
+          }
+        />
+      )}
     </div>
   );
 }

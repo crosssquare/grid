@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from "@nestjs/common";
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { DRIZZLE_DB, DrizzleDb } from "../../db/db.module";
 import { comments, feedPosts, media, postMedia } from "../../db/schema";
 import { CreatePostDto } from "./dto/create-post.dto";
@@ -59,6 +59,13 @@ export class PostsService {
       await this.db
         .insert(postMedia)
         .values(mediaIds.map((mediaId, position) => ({ postId: post.id, mediaId, position })));
+      // Composer attachments are uploaded as private drafts so an abandoned draft never
+      // reaches the gallery (see MediaService.upload). Submitting the post is what
+      // publishes them.
+      await this.db
+        .update(media)
+        .set({ visibility: "public" })
+        .where(and(inArray(media.id, mediaIds), eq(media.userId, userId), eq(media.visibility, "private")));
     }
     return post;
   }
