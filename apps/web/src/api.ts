@@ -16,6 +16,28 @@ export class ApiError extends Error {
   }
 }
 
+// The signed-in user's id. localStorage is only written at login, so a logout or a
+// failed refresh can leave us authed-but-idless — fall back to the JWT's `sub` claim
+// and backfill, otherwise callers request `/profiles/` and get a spurious 404.
+export function getMyUserId(): string | null {
+  const stored = localStorage.getItem("userId");
+  if (stored) return stored;
+
+  const token = localStorage.getItem("accessToken");
+  if (!token) return null;
+  try {
+    const payload = token.split(".")[1];
+    if (!payload) return null;
+    const json = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
+    const sub = JSON.parse(json)?.sub;
+    if (typeof sub !== "string" || !sub) return null;
+    localStorage.setItem("userId", sub);
+    return sub;
+  } catch {
+    return null;
+  }
+}
+
 let refreshInFlight: Promise<boolean> | null = null;
 
 async function tryRefresh(): Promise<boolean> {
@@ -32,6 +54,7 @@ async function tryRefresh(): Promise<boolean> {
   const data: AuthResponse = await res.json();
   localStorage.setItem("accessToken", data.accessToken);
   localStorage.setItem("refreshToken", data.refreshToken);
+  if (data.userId) localStorage.setItem("userId", data.userId);
   return true;
 }
 

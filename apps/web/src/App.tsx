@@ -11,6 +11,7 @@ import { TopBar } from "./TopBar";
 import { NotificationsScreen } from "./NotificationsScreen";
 import { ProUpgradeScreen } from "./ProUpgradeScreen";
 import { disconnectSocket } from "./socket";
+import { getMyUserId } from "./api";
 
 export default function App() {
   const [authed, setAuthed] = useState(() => Boolean(localStorage.getItem("accessToken")));
@@ -75,7 +76,7 @@ export default function App() {
     return <ProUpgradeScreen onBack={() => setSubScreen(null)} />;
   }
 
-  const myUserId = localStorage.getItem("userId") ?? "";
+  const myUserId = getMyUserId() ?? "";
 
   return (
     <>

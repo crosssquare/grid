@@ -76,6 +76,12 @@ export function ProfileView({
   function load() {
     setError(null);
     setNotFound(false);
+    // An empty id would hit `/profiles/` and 404, which would wrongly read as
+    // "you have no profile" — bail out instead of asking for nothing.
+    if (!userId) {
+      setError("Couldn't identify your account — try signing out and back in.");
+      return;
+    }
     api
       .getViewedProfile(userId)
       .then(setProfile)
@@ -267,33 +273,14 @@ export function ProfileView({
       )}
 
       <div className="relative mb-4">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
           <h1 className="min-w-0 truncate text-xl font-semibold">{profile.displayName}</h1>
           {!profile.isSelf && (
-            <div className="flex shrink-0 items-center gap-1">
-              <button
-                onClick={toggleFavorite}
-                disabled={busy}
-                aria-label={profile.isFavorited ? "Remove favourite" : "Add favourite"}
-                className={profile.isFavorited ? "text-amber-400" : "text-slate-500"}
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  className="h-6 w-6"
-                  fill={profile.isFavorited ? "currentColor" : "none"}
-                  stroke="currentColor"
-                  strokeWidth={1.75}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="m12 3.5 2.6 5.3 5.9.9-4.25 4.15 1 5.85L12 17l-5.25 2.75 1-5.85L3.5 9.7l5.9-.9L12 3.5Z"
-                  />
-                </svg>
-              </button>
-              {/* A native <select> so tapping opens the real OS menu (same as the Grid
-                  filter chips); the transparent select sits over the ellipsis icon. */}
-              <div className="relative h-6 w-6 text-slate-400">
+            <>
+              {/* Ellipsis sits 8px (gap-2) after the name. A native <select> so tapping
+                  opens the real OS menu, same as the Grid filter chips; the transparent
+                  select sits over the icon. */}
+              <div className="relative h-6 w-6 shrink-0 text-slate-400">
                 <svg viewBox="0 0 24 24" className="h-6 w-6" fill="currentColor">
                   <circle cx="5" cy="12" r="1.75" />
                   <circle cx="12" cy="12" r="1.75" />
@@ -316,22 +303,47 @@ export function ProfileView({
                   <option value="block">Block</option>
                 </select>
               </div>
-            </div>
+              <button
+                onClick={toggleFavorite}
+                disabled={busy}
+                aria-label={profile.isFavorited ? "Remove favourite" : "Add favourite"}
+                className={`ml-auto shrink-0 ${profile.isFavorited ? "text-amber-400" : "text-slate-500"}`}
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-6 w-6"
+                  fill={profile.isFavorited ? "currentColor" : "none"}
+                  stroke="currentColor"
+                  strokeWidth={1.75}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="m12 3.5 2.6 5.3 5.9.9-4.25 4.15 1 5.85L12 17l-5.25 2.75 1-5.85L3.5 9.7l5.9-.9L12 3.5Z"
+                  />
+                </svg>
+              </button>
+            </>
           )}
         </div>
 
-        {profile.lastSeenAt &&
-          (isOnline(profile.lastSeenAt) ? (
-            <p className="flex items-center gap-1.5 text-xs text-emerald-400">
-              <span className="h-2 w-2 rounded-full bg-emerald-400" />
-              Online
-            </p>
-          ) : (
-            <p className="flex items-center gap-1.5 text-xs text-slate-500">
-              <span className="h-2 w-2 rounded-full bg-slate-600" />
-              Last online {timeAgo(profile.lastSeenAt)}
-            </p>
-          ))}
+        {/* Always render a presence line. lastSeenAt is NULL for accounts that predate
+            heartbeat tracking, so fall back to onlineStatus rather than showing nothing. */}
+        {profile.lastSeenAt && isOnline(profile.lastSeenAt) ? (
+          <p className="flex items-center gap-1.5 text-xs text-emerald-400">
+            <span className="h-2 w-2 rounded-full bg-emerald-400" />
+            Online
+          </p>
+        ) : (
+          <p className="flex items-center gap-1.5 text-xs text-slate-500">
+            <span className="h-2 w-2 rounded-full bg-slate-600" />
+            {profile.lastSeenAt
+              ? `Last online ${timeAgo(profile.lastSeenAt)}`
+              : profile.onlineStatus === "online"
+                ? "Online"
+                : "Offline"}
+          </p>
+        )}
         {!profile.isSelf && profile.distanceMeters != null && (
           <p className="text-xs text-emerald-400">{formatDistance(profile.distanceMeters)}</p>
         )}

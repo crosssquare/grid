@@ -287,8 +287,6 @@ export function Timeline({ onViewProfile }: { onViewProfile: (userId: string) =>
               )}
             </div>
 
-            {p.kind === "review" && p.rating != null && <p className="text-indigo-400">{"★".repeat(p.rating)}</p>}
-
             {p.kind === "like" && p.mediaStorageKey && (
               <div className="flex items-center gap-3">
                 {p.mediaType === "photo" ? (
@@ -386,7 +384,11 @@ export function Timeline({ onViewProfile }: { onViewProfile: (userId: string) =>
                 p.body && <p>{p.body}</p>
               ))}
 
+            {/* Stars sit under the written review, matching the profile. */}
             {p.kind === "review" && p.body && <p>{p.body}</p>}
+            {p.kind === "review" && p.rating != null && (
+              <p className="text-indigo-400">{"★".repeat(p.rating)}</p>
+            )}
 
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -407,12 +409,20 @@ export function Timeline({ onViewProfile }: { onViewProfile: (userId: string) =>
                 )}
               </div>
               {p.kind === "post" && p.isMine && editingId !== p.id && (
-                <div className="flex gap-3">
-                  <button onClick={() => startEditing(p)} className="text-xs text-slate-500 underline">
-                    {p.media.length > 0 ? (p.body ? "Edit caption" : "Add caption") : "Edit"}
+                <div className="flex items-center gap-3 text-slate-500">
+                  <button
+                    onClick={() => startEditing(p)}
+                    aria-label={p.media.length > 0 ? (p.body ? "Edit caption" : "Add caption") : "Edit post"}
+                    title={p.media.length > 0 ? (p.body ? "Edit caption" : "Add caption") : "Edit"}
+                  >
+                    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 20h4L20 8a2.8 2.8 0 0 0-4-4L4 16v4Z" />
+                    </svg>
                   </button>
-                  <button onClick={() => remove(p.id)} className="text-xs text-slate-500 underline">
-                    Delete
+                  <button onClick={() => remove(p.id)} aria-label="Delete post" title="Delete">
+                    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" d="M4 7h16M10 11v6M14 11v6M5 7l1 13h12l1-13M9 7V4h6v3" />
+                    </svg>
                   </button>
                 </div>
               )}
