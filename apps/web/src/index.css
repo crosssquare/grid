@@ -28,3 +28,15 @@ input,
 textarea {
   font-size: 16px !important;
 }
+
+/* Hide every scrollbar — the page itself and any horizontally scrolling strip
+   such as the Grid filter chips. Scrolling still works; only the indicator goes.
+   Firefox/old Edge use the property form, Chrome/Safari the pseudo-element. */
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
+}
