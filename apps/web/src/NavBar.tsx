@@ -10,16 +10,24 @@ export function NavBar({ view, onChange }: { view: View; onChange: (v: View) => 
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 flex bg-slate-950 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 flex bg-slate-950/90 backdrop-blur-sm pb-[max(0.75rem,env(safe-area-inset-bottom))]">
       {tabs.map((tab) => (
         <button
           key={tab.id}
           onClick={() => onChange(tab.id)}
-          className={`flex-1 py-3 text-sm font-medium ${
-            view === tab.id ? "text-indigo-400" : "text-slate-500"
-          }`}
+          aria-current={view === tab.id ? "page" : undefined}
+          className="flex flex-1 items-center justify-center py-3"
         >
-          {tab.label}
+          {/* The chip is an inner span so the button keeps its full 48px touch target
+              while the filled pill stays compact — same treatment as the Events
+              segmented control and the Grid filter chips. */}
+          <span
+            className={`rounded-full px-4 py-1.5 text-sm font-medium ${
+              view === tab.id ? "bg-indigo-600 text-slate-100" : "text-slate-500"
+            }`}
+          >
+            {tab.label}
+          </span>
         </button>
       ))}
     </nav>
