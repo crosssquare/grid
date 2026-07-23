@@ -288,6 +288,16 @@ export const events = pgTable("events", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
 });
 
+export const eventAttendees = pgTable(
+  "event_attendees",
+  {
+    eventId: uuid("event_id").notNull(),
+    userId: uuid("user_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (t) => [primaryKey({ columns: [t.eventId, t.userId] })]
+);
+
 export const classifieds = pgTable("classifieds", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: uuid("user_id").notNull(),

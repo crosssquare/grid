@@ -17,6 +17,8 @@ import { ReviewsModule } from "./modules/reviews/reviews.module";
 import { PostsModule } from "./modules/posts/posts.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { CommentsModule } from "./modules/comments/comments.module";
+import { EventsModule } from "./modules/events/events.module";
+import { ClassifiedsModule } from "./modules/classifieds/classifieds.module";
 
 @Module({
   imports: [
@@ -39,7 +41,9 @@ import { CommentsModule } from "./modules/comments/comments.module";
     ReviewsModule,
     PostsModule,
     NotificationsModule,
-    CommentsModule
+    CommentsModule,
+    EventsModule,
+    ClassifiedsModule
   ]
 })
 export class AppModule {}

@@ -337,6 +337,9 @@ CREATE TABLE events (
 CREATE TABLE event_attendees (
     event_id      UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
     user_id       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    -- Joining an event is a Timeline activity, so the join needs its own timestamp
+    -- to order by; the event's created_at is when it was made, not when you joined.
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (event_id, user_id)
 );
 

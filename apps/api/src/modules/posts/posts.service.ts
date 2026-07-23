@@ -14,8 +14,9 @@ export interface FeedMediaJson {
 }
 
 interface FeedRow extends Record<string, unknown> {
-  kind: "post" | "like" | "review";
+  kind: "post" | "like" | "review" | "event_created" | "event_joined";
   id: string;
+  entity_id: string | null;
   actor_id: string;
   target_user_id: string | null;
   body: string | null;
@@ -71,8 +72,8 @@ export class PostsService {
   }
 
   // Timeline: the single shared public activity stream (PRD §4/§5.5), combining a user's own
-  // authored posts with two other activity kinds — liking a photo and leaving an approved+public
-  // review — so all three surface in one chronological feed. Hides activity from blocked users
+  // authored posts with four other activity kinds — liking a photo, leaving an approved+public
+  // review, creating an event and joining one — so all surface in one chronological feed. Hides activity from blocked users
   // (either direction) and from hidden profiles, except the viewer's own activity always shows
   // to themselves. Reviewer identity is intentionally shown even when a review is anonymized to
   // public profile viewers elsewhere — an explicit product decision for this surface.
@@ -106,9 +107,29 @@ export class PostsService {
           r.rating, r.created_at
         FROM reviews r
         WHERE r.status = 'approved' AND r.visibility = 'public'
+
+        UNION ALL
+
+        -- Creating an event is public activity, same as posting.
+        SELECT
+          'event_created', 'event-' || e.id::text, e.id, e.creator_id,
+          NULL, e.title, NULL,
+          NULL, e.created_at
+        FROM events e
+
+        UNION ALL
+
+        -- ...and so is joining one. Ordered by when you joined, not when the event
+        -- was made, which is why event_attendees carries its own created_at.
+        SELECT
+          'event_joined', 'eventjoin-' || ea.event_id::text || '-' || ea.user_id::text, ea.event_id, ea.user_id,
+          NULL, e2.title, NULL,
+          NULL, ea.created_at
+        FROM event_attendees ea
+        JOIN events e2 ON e2.id = ea.event_id
       )
       SELECT
-        a.kind, a.id, a.actor_id, a.target_user_id, a.body, a.media_id, a.rating, a.created_at,
+        a.kind, a.id, a.entity_id, a.actor_id, a.target_user_id, a.body, a.media_id, a.rating, a.created_at,
         actor.display_name AS actor_display_name,
         actor_pm.storage_key AS actor_profile_photo_storage_key,
         au.last_seen_at AS actor_last_seen_at,
@@ -116,10 +137,14 @@ export class PostsService {
         m.storage_key AS media_storage_key, m.media_type,
         CASE a.kind
           WHEN 'review' THEN (SELECT count(*)::int FROM review_likes rl WHERE rl.review_id = a.entity_id)
+          WHEN 'event_created' THEN 0
+          WHEN 'event_joined' THEN 0
           ELSE (SELECT count(*)::int FROM media_likes ml2 WHERE ml2.media_id = a.media_id)
         END AS like_count,
         CASE a.kind
           WHEN 'review' THEN EXISTS(SELECT 1 FROM review_likes rl2 WHERE rl2.review_id = a.entity_id AND rl2.user_id = ${viewerId})
+          WHEN 'event_created' THEN false
+          WHEN 'event_joined' THEN false
           ELSE EXISTS(SELECT 1 FROM media_likes ml3 WHERE ml3.media_id = a.media_id AND ml3.user_id = ${viewerId})
         END AS i_liked,
         CASE a.kind
@@ -154,6 +179,7 @@ export class PostsService {
         -- suppress your own like activity from your own feed (unlike posts/reviews, which
         -- you'd naturally still want to see yourself).
         AND NOT (a.kind = 'like' AND a.actor_id = ${viewerId})
+        AND NOT (a.kind = 'event_joined' AND a.actor_id = ${viewerId})
       ORDER BY a.created_at DESC
       LIMIT 100
     `);
@@ -163,6 +189,8 @@ export class PostsService {
       kind: row.kind,
       userId: row.actor_id,
       body: row.body,
+      // Event activity carries the event id so the client can deep-link into the tab.
+      eventId: row.kind === "event_created" || row.kind === "event_joined" ? row.entity_id : null,
       mediaId: row.media_id,
       mediaStorageKey: row.media_storage_key,
       mediaType: row.media_type,

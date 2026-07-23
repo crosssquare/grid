@@ -42,7 +42,25 @@ export class MediaService {
     });
   }
 
+  // A composer draft that was never posted and never explicitly removed (you attached a
+  // photo then closed the app) would otherwise sit as a private, unreferenced row forever.
+  // There's no cron in this stack, so sweep the caller's own stale drafts on their next
+  // upload — it can only ever touch their own abandoned drafts, and costs one delete.
+  private async sweepAbandonedDrafts(userId: string) {
+    await this.db.execute(sql`
+      DELETE FROM media m
+      WHERE m.user_id = ${userId}
+        AND m.visibility = 'private'
+        AND m.created_at < now() - interval '24 hours'
+        AND NOT EXISTS (SELECT 1 FROM post_media pm WHERE pm.media_id = m.id)
+        AND NOT EXISTS (SELECT 1 FROM feed_posts fp WHERE fp.media_id = m.id)
+        AND NOT EXISTS (SELECT 1 FROM profiles p WHERE p.profile_photo_media_id = m.id)
+    `);
+  }
+
   async upload(userId: string, file: Express.Multer.File, mediaType: "photo" | "video", skipPost = false) {
+    await this.sweepAbandonedDrafts(userId).catch(() => undefined);
+
     const bucket = this.config.get<string>("s3Bucket");
     if (!bucket) {
       throw new ServiceUnavailableException("S3_BUCKET is not configured yet");
