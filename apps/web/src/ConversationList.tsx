@@ -66,7 +66,7 @@ export function ConversationList({
       {error && <p className="text-red-400 text-sm">{error}</p>}
       {!loading && !error && conversations.length === 0 && (
         <p className="text-slate-500 text-sm">
-          No conversations yet — tap "Message" on a profile in the Grid to start one.
+          No conversations yet — tap "Message" on a profile in Guys to start one.
         </p>
       )}
 

@@ -149,6 +149,16 @@ export const api = {
     return request<MediaItem>("/media", { method: "POST", body: form });
   },
   deleteMedia: (mediaId: string) => request(`/media/${mediaId}`, { method: "DELETE" }),
+  listEvents: () => request<EventItem[]>("/events"),
+  createEvent: (input: CreateEventInput) =>
+    request<EventItem>("/events", { method: "POST", body: JSON.stringify(input) }),
+  deleteEvent: (id: string) => request(`/events/${id}`, { method: "DELETE" }),
+  attendEvent: (id: string) => request(`/events/${id}/attend`, { method: "POST" }),
+  unattendEvent: (id: string) => request(`/events/${id}/attend`, { method: "DELETE" }),
+  listClassifieds: () => request<Classified[]>("/classifieds"),
+  createClassified: (input: CreateClassifiedInput) =>
+    request<Classified>("/classifieds", { method: "POST", body: JSON.stringify(input) }),
+  deleteClassified: (id: string) => request(`/classifieds/${id}`, { method: "DELETE" }),
   setProfilePhoto: (mediaId: string) => request(`/media/${mediaId}/profile-photo`, { method: "PUT" }),
   likeMedia: (mediaId: string) => request(`/media/${mediaId}/like`, { method: "POST" }),
   unlikeMedia: (mediaId: string) => request(`/media/${mediaId}/like`, { method: "DELETE" }),
@@ -283,9 +293,11 @@ export interface FeedMedia {
 
 export interface FeedPost {
   id: string;
-  kind: "post" | "like" | "review";
+  kind: "post" | "like" | "review" | "event_created" | "event_joined";
   userId: string;
   body: string | null;
+  // Set on event activity only — the event the entry refers to.
+  eventId: string | null;
   mediaId: string | null;
   mediaStorageKey: string | null;
   mediaType: string | null;
@@ -301,6 +313,58 @@ export interface FeedPost {
   iLiked: boolean;
   commentCount: number;
   isMine: boolean;
+}
+
+export interface EventItem {
+  id: string;
+  creatorId: string;
+  creatorDisplayName: string;
+  creatorProfilePhotoStorageKey: string | null;
+  title: string;
+  description: string | null;
+  venueName: string | null;
+  startsAt: string;
+  endsAt: string | null;
+  createdAt: string;
+  attendeeCount: number;
+  iAmAttending: boolean;
+  distanceMeters: number | null;
+  isMine: boolean;
+}
+
+export interface CreateEventInput {
+  title: string;
+  description?: string;
+  venueName?: string;
+  startsAt: string;
+  endsAt?: string;
+  latitude?: number;
+  longitude?: number;
+}
+
+export interface Classified {
+  id: string;
+  // null on an anonymous listing that isn't yours — the API withholds it, the client
+  // never has the author's identity to leak.
+  userId: string | null;
+  displayName: string | null;
+  profilePhotoStorageKey: string | null;
+  body: string;
+  anonymous: boolean;
+  availableFrom: string | null;
+  availableTo: string | null;
+  createdAt: string;
+  distanceMeters: number | null;
+  isMine: boolean;
+}
+
+export interface CreateClassifiedInput {
+  body: string;
+  anonymous?: boolean;
+  availableFrom?: string;
+  availableTo?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface Comment {

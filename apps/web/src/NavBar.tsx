@@ -1,11 +1,12 @@
-export type View = "timeline" | "grid" | "chat" | "profile";
+export type View = "timeline" | "grid" | "chat" | "events" | "profile";
 
+// Chat and Profile are reached from the TopBar, not here — they stay valid Views so
+// every existing setView("chat") call site keeps working, they just aren't tabs.
 export function NavBar({ view, onChange }: { view: View; onChange: (v: View) => void }) {
   const tabs: { id: View; label: string }[] = [
-    { id: "timeline", label: "Timeline" },
-    { id: "grid", label: "Grid" },
-    { id: "chat", label: "Chat" },
-    { id: "profile", label: "Profile" }
+    { id: "timeline", label: "Home" },
+    { id: "grid", label: "Guys" },
+    { id: "events", label: "Events" }
   ];
 
   return (

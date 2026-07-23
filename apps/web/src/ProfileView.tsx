@@ -695,7 +695,11 @@ export function ProfileView({
       {profile.isSelf && onEdit && (
         <button
           onClick={onEdit}
-          className="fixed bottom-20 right-4 z-30 rounded-full bg-indigo-600 px-4 py-2.5 text-sm font-medium shadow-lg"
+          // A viewed profile renders without the NavBar, so the button only has to clear
+          // the home indicator there; on the Profile tab it has to clear the tab bar.
+          className={`fixed ${
+            onBack ? "bottom-[max(1rem,env(safe-area-inset-bottom))]" : "bottom-20"
+          } right-4 z-30 rounded-full bg-indigo-600 px-4 py-2.5 text-sm font-medium shadow-lg`}
         >
           Edit
         </button>

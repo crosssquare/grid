@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, DiscoveryParams, DiscoveryProfile, getMediaUrl } from "./api";
 import { OnlineDot } from "./presence";
+import { LocationPin } from "./LocationPin";
 
 const ROLES = ["top", "more_top", "vers", "bottom", "more_bottom"];
 const BODY_TYPES = ["slim", "athletic", "stocky", "muscular", "average"];
@@ -40,10 +41,14 @@ export function DiscoveryGrid({ onViewProfile }: { onViewProfile: (userId: strin
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 px-4 py-6 pb-24">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-semibold">Grid</h1>
+        <h1 className="text-xl font-semibold">Guys</h1>
+        <LocationPin />
       </div>
 
-      <div className="flex flex-nowrap gap-2 mb-4 overflow-x-auto">
+      {/* Full-bleed: -mx-4 cancels the screen's px-4 so chips scroll all the way to the
+          viewport edge instead of being clipped by the gutter; px-4 puts the gutter back
+          inside the scroller so the strip still lines up with the page at rest. */}
+      <div className="-mx-4 flex flex-nowrap gap-2 mb-4 overflow-x-auto px-4">
         <button
           onClick={() => setFilters((f) => ({ ...f, sort: f.sort === "distance" ? "new" : "distance" }))}
           className="shrink-0 rounded-full bg-slate-900 px-4 text-xs"

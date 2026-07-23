@@ -5,6 +5,7 @@ import { Lightbox } from "./Lightbox";
 import { CommentThread } from "./CommentThread";
 import { UndoToast } from "./UndoToast";
 import { OnlineDot } from "./presence";
+import { LocationPin } from "./LocationPin";
 
 function postId(feedId: string): string {
   return feedId.replace(/^post-/, "");
@@ -14,7 +15,13 @@ function reviewId(feedId: string): string {
   return feedId.replace(/^review-/, "");
 }
 
-export function Timeline({ onViewProfile }: { onViewProfile: (userId: string) => void }) {
+export function Timeline({
+  onViewProfile,
+  onViewEvents
+}: {
+  onViewProfile: (userId: string) => void;
+  onViewEvents?: () => void;
+}) {
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [draft, setDraft] = useState("");
   const [attachments, setAttachments] = useState<MediaItem[]>([]);
@@ -208,7 +215,10 @@ export function Timeline({ onViewProfile }: { onViewProfile: (userId: string) =>
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 px-4 py-6 pb-24">
-      <h1 className="text-xl font-semibold mb-4">Timeline</h1>
+      <div className="mb-4 flex items-center justify-between">
+        <h1 className="text-xl font-semibold">Home</h1>
+        <LocationPin />
+      </div>
 
       <div className="rounded-md bg-slate-900 p-3 space-y-2 mb-4">
         {/* The photo picker sits inside the field, bottom-right, so it reads as part of
@@ -302,7 +312,22 @@ export function Timeline({ onViewProfile }: { onViewProfile: (userId: string) =>
                   </button>
                 </span>
               )}
+              {p.kind === "event_created" && <span className="text-slate-400">created an event</span>}
+              {p.kind === "event_joined" && <span className="text-slate-400">is going to</span>}
             </div>
+
+            {(p.kind === "event_created" || p.kind === "event_joined") && p.body && (
+              <button
+                onClick={() => onViewEvents?.()}
+                className="flex w-full items-center gap-2 rounded-md bg-slate-800 p-2.5 text-left"
+              >
+                <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0 text-slate-400" fill="none" stroke="currentColor" strokeWidth={1.75}>
+                  <rect x="3" y="5" width="18" height="16" rx="2" />
+                  <path strokeLinecap="round" d="M3 10h18M8 3v4M16 3v4" />
+                </svg>
+                <span className="min-w-0 flex-1 break-words text-sm font-medium">{p.body}</span>
+              </button>
+            )}
 
             {p.kind === "like" && p.mediaStorageKey && (
               <div className="flex items-center gap-3">

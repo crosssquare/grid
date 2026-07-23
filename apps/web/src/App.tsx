@@ -5,6 +5,7 @@ import { DiscoveryGrid } from "./DiscoveryGrid";
 import { ChatView } from "./ChatView";
 import { ProfileView } from "./ProfileView";
 import { Timeline } from "./Timeline";
+import { EventsScreen } from "./EventsScreen";
 import { NavBar, View } from "./NavBar";
 import { PullToRefresh } from "./PullToRefresh";
 import { TopBar } from "./TopBar";
@@ -52,7 +53,20 @@ export default function App() {
   if (viewedUserId) {
     return (
       <PullToRefresh onRefresh={refresh}>
-        <ProfileView key={refreshKey} userId={viewedUserId} onBack={() => setViewedUserId(null)} onMessage={openChat} />
+        <ProfileView
+          key={refreshKey}
+          userId={viewedUserId}
+          onBack={() => setViewedUserId(null)}
+          onMessage={openChat}
+          // Your own card shows up in the Grid, so this branch has to offer Edit too.
+          // ProfileForm only lives in the Profile-tab branch below — route there rather
+          // than mounting a second copy of it.
+          onEdit={() => {
+            setViewedUserId(null);
+            setView("profile");
+            setProfileEditing(true);
+          }}
+        />
       </PullToRefresh>
     );
   }
@@ -80,11 +94,21 @@ export default function App() {
 
   return (
     <>
-      <TopBar onUpgrade={() => setSubScreen("pro")} onNotifications={() => setSubScreen("notifications")} />
+      <TopBar
+        onProfile={() => changeView("profile")}
+        onChat={() => changeView("chat")}
+        onUpgrade={() => setSubScreen("pro")}
+        onNotifications={() => setSubScreen("notifications")}
+      />
       <PullToRefresh onRefresh={refresh}>
-        <div className="pt-[calc(3.25rem+env(safe-area-inset-top))]">
-          {view === "timeline" && <Timeline key={refreshKey} onViewProfile={setViewedUserId} />}
+        {/* 4.5rem = the TopBar's real height: a 48px touch-target row (the base
+            min-height on buttons) plus its 12px top and bottom padding. */}
+        <div className="pt-[calc(4.5rem+env(safe-area-inset-top))]">
+          {view === "timeline" && (
+            <Timeline key={refreshKey} onViewProfile={setViewedUserId} onViewEvents={() => setView("events")} />
+          )}
           {view === "grid" && <DiscoveryGrid key={refreshKey} onViewProfile={setViewedUserId} />}
+          {view === "events" && <EventsScreen key={refreshKey} onViewProfile={setViewedUserId} />}
           {view === "chat" && (
             <ChatView
               key={refreshKey}
