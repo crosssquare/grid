@@ -14,18 +14,49 @@ import { ProUpgradeScreen } from "./ProUpgradeScreen";
 import { disconnectSocket } from "./socket";
 import { getMyUserId } from "./api";
 
+const VIEW_KEY = "grid:view";
+const VIEWED_USER_KEY = "grid:viewedUserId";
+const VIEWS: View[] = ["timeline", "grid", "chat", "events", "profile"];
+
+// Where you are is kept in sessionStorage so a reload — the browser's, or a genuine
+// refresh — puts you back on the same screen instead of Home. sessionStorage, not
+// local: reopening the app fresh should still start at Home.
+function readView(): View {
+  const stored = sessionStorage.getItem(VIEW_KEY) as View | null;
+  return stored && VIEWS.includes(stored) ? stored : "timeline";
+}
+
+function clearNavigationState() {
+  sessionStorage.removeItem(VIEW_KEY);
+  sessionStorage.removeItem(VIEWED_USER_KEY);
+}
+
 export default function App() {
   const [authed, setAuthed] = useState(() => Boolean(localStorage.getItem("accessToken")));
-  const [view, setView] = useState<View>("timeline");
+  const [view, setView] = useState<View>(readView);
   const [openConversation, setOpenConversation] = useState<{ id: string; displayName: string } | null>(null);
-  const [viewedUserId, setViewedUserId] = useState<string | null>(null);
+  const [viewedUserId, setViewedUserId] = useState<string | null>(() => sessionStorage.getItem(VIEWED_USER_KEY));
   const [subScreen, setSubScreen] = useState<"notifications" | "pro" | null>(null);
   const [profileEditing, setProfileEditing] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const refresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
   useEffect(() => {
-    const onSessionExpired = () => setAuthed(false);
+    sessionStorage.setItem(VIEW_KEY, view);
+  }, [view]);
+
+  useEffect(() => {
+    if (viewedUserId) sessionStorage.setItem(VIEWED_USER_KEY, viewedUserId);
+    else sessionStorage.removeItem(VIEWED_USER_KEY);
+  }, [viewedUserId]);
+
+  useEffect(() => {
+    const onSessionExpired = () => {
+      // Don't leave the next person to sign in on this device staring at the
+      // previous user's screen.
+      clearNavigationState();
+      setAuthed(false);
+    };
     window.addEventListener("grid:session-expired", onSessionExpired);
     return () => window.removeEventListener("grid:session-expired", onSessionExpired);
   }, []);
@@ -43,6 +74,9 @@ export default function App() {
 
   function logout() {
     disconnectSocket();
+    clearNavigationState();
+    setView("timeline");
+    setViewedUserId(null);
     setAuthed(false);
   }
 

@@ -8,6 +8,10 @@
 html,
 body {
   background-color: #020617;
+  /* Without this the browser's own pull-to-refresh fires at scrollY 0 — the exact
+     point our PullToRefresh engages — reloading the document and resetting the
+     app back to Home. Contain keeps the gesture ours. */
+  overscroll-behavior-y: contain;
 }
 
 /* Minimum comfortable touch target size for all interactive elements. */
