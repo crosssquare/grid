@@ -104,8 +104,40 @@ export class ChatService {
     return conversation;
   }
 
+  // Opening a thread is what marks it read — this is what clears the TopBar badge.
+  // Only the other side's messages are touched; your own were never unread.
+  private async markConversationRead(userId: string, conversationId: string) {
+    await this.db.execute(sql`
+      UPDATE messages
+      SET read_at = now()
+      WHERE conversation_id = ${conversationId}
+        AND sender_id <> ${userId}
+        AND read_at IS NULL
+    `);
+  }
+
+  // Total unread across every conversation you're in. Mirrors the block exclusion in
+  // list() so someone you've blocked can't sit in your badge.
+  async unreadCount(userId: string) {
+    const result = await this.db.execute<{ count: number }>(sql`
+      SELECT count(*)::int AS count
+      FROM messages msg
+      JOIN conversations c ON c.id = msg.conversation_id
+      WHERE msg.sender_id <> ${userId}
+        AND msg.read_at IS NULL
+        AND (c.user_a_id = ${userId} OR c.user_b_id = ${userId})
+        AND NOT EXISTS (
+          SELECT 1 FROM blocks b
+          WHERE (b.user_id = c.user_a_id AND b.blocked_id = c.user_b_id)
+             OR (b.user_id = c.user_b_id AND b.blocked_id = c.user_a_id)
+        )
+    `);
+    return { count: result.rows[0]?.count ?? 0 };
+  }
+
   async getMessages(userId: string, conversationId: string) {
     await this.assertParticipant(userId, conversationId);
+    await this.markConversationRead(userId, conversationId);
     const result = await this.db.execute<MessageRow>(sql`
       SELECT
         msg.id, msg.conversation_id, msg.sender_id, msg.body, msg.media_id, msg.read_at, msg.created_at,

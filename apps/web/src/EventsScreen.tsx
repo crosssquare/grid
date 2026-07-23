@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, Classified, EventItem, getMediaUrl } from "./api";
-import { LocationPin } from "./LocationPin";
+import { LocationLine } from "./LocationLine";
 
 type Tab = "events" | "classifieds";
 
@@ -138,11 +138,9 @@ export function EventsScreen({ onViewProfile }: { onViewProfile: (userId: string
   const canSubmit = tab === "events" ? Boolean(title.trim() && startsAt) : Boolean(body.trim());
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 px-4 py-6 pb-24">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Events</h1>
-        <LocationPin />
-      </div>
+    <div className="min-h-screen bg-slate-950 text-slate-100 px-4 pt-3 pb-24">
+      <h1 className="text-xl font-semibold">Events</h1>
+      <LocationLine />
 
       <div className="mb-4 flex gap-2">
         {(["events", "classifieds"] as Tab[]).map((t) => (

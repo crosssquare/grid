@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, getMediaUrl } from "./api";
+import { getSocket } from "./socket";
 
 export function TopBar({
   onProfile,
@@ -13,12 +14,34 @@ export function TopBar({
   onNotifications: () => void;
 }) {
   const [photoKey, setPhotoKey] = useState<string | null>(null);
+  const [unread, setUnread] = useState(0);
 
   useEffect(() => {
     api
       .getMyProfile()
       .then((p) => setPhotoKey(p.profilePhotoStorageKey ?? null))
       .catch(() => undefined);
+  }, []);
+
+  // The badge has three inputs: the count at load, a live bump when a message arrives
+  // over the socket, and a re-fetch once ChatThread has marked a thread read.
+  useEffect(() => {
+    const refresh = () =>
+      api
+        .getUnreadCount()
+        .then((r) => setUnread(r.count))
+        .catch(() => undefined);
+    refresh();
+
+    const socket = getSocket();
+    const onNewMessage = () => setUnread((n) => n + 1);
+    socket?.on("message:new", onNewMessage);
+    window.addEventListener("grid:unread-changed", refresh);
+
+    return () => {
+      socket?.off("message:new", onNewMessage);
+      window.removeEventListener("grid:unread-changed", refresh);
+    };
   }, []);
 
   return (
@@ -46,6 +69,14 @@ export function TopBar({
       </div>
 
       <div className="flex items-center gap-3">
+        {unread > 0 && (
+          <span
+            aria-label={`${unread} unread messages`}
+            className="min-w-[1.25rem] rounded-full bg-rose-500 px-1.5 text-center text-[11px] font-semibold leading-5 text-white"
+          >
+            {unread > 9 ? "9+" : unread}
+          </span>
+        )}
         <button onClick={onChat} aria-label="Chat" className="text-slate-300">
           <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={1.75}>
             <rect x="3" y="5" width="18" height="14" rx="2" />

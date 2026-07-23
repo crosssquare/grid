@@ -5,7 +5,6 @@ import { Lightbox } from "./Lightbox";
 import { CommentThread } from "./CommentThread";
 import { UndoToast } from "./UndoToast";
 import { OnlineDot } from "./presence";
-import { LocationPin } from "./LocationPin";
 
 function postId(feedId: string): string {
   return feedId.replace(/^post-/, "");
@@ -214,11 +213,8 @@ export function Timeline({
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 px-4 py-6 pb-24">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Home</h1>
-        <LocationPin />
-      </div>
+    <div className="min-h-screen bg-slate-950 text-slate-100 px-4 pt-3 pb-24">
+      <h1 className="text-xl font-semibold mb-4">Home</h1>
 
       <div className="rounded-md bg-slate-900 p-3 space-y-2 mb-4">
         {/* The photo picker sits inside the field, bottom-right, so it reads as part of

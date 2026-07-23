@@ -127,6 +127,7 @@ export const api = {
   startConversation: (otherUserId: string) =>
     request<Conversation>("/conversations", { method: "POST", body: JSON.stringify({ otherUserId }) }),
   listConversations: () => request<ConversationSummary[]>("/conversations"),
+  getUnreadCount: () => request<{ count: number }>("/conversations/unread-count"),
   getMessages: (conversationId: string) => request<Message[]>(`/conversations/${conversationId}/messages`),
   sendMessage: (conversationId: string, body: string) =>
     request<Message>(`/conversations/${conversationId}/messages`, { method: "POST", body: JSON.stringify({ body }) }),

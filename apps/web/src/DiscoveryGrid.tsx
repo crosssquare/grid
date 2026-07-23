@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, DiscoveryParams, DiscoveryProfile, getMediaUrl } from "./api";
 import { OnlineDot } from "./presence";
-import { LocationPin } from "./LocationPin";
+import { LocationLine } from "./LocationLine";
 
 const ROLES = ["top", "more_top", "vers", "bottom", "more_bottom"];
 const BODY_TYPES = ["slim", "athletic", "stocky", "muscular", "average"];
@@ -39,11 +39,9 @@ export function DiscoveryGrid({ onViewProfile }: { onViewProfile: (userId: strin
   }, [filters]);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 px-4 py-6 pb-24">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-semibold">Guys</h1>
-        <LocationPin />
-      </div>
+    <div className="min-h-screen bg-slate-950 text-slate-100 px-4 pt-3 pb-24">
+      <h1 className="text-xl font-semibold">Guys</h1>
+      <LocationLine />
 
       {/* Full-bleed: -mx-4 cancels the screen's px-4 so chips scroll all the way to the
           viewport edge instead of being clipped by the gutter; px-4 puts the gutter back

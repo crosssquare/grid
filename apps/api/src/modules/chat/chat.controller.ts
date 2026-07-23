@@ -25,6 +25,13 @@ export class ChatController {
     return this.chat.list(userId);
   }
 
+  // Must sit above the :id route below — otherwise "unread-count" is parsed as an id
+  // and rejected by ParseUUIDPipe.
+  @Get("conversations/unread-count")
+  unreadCount(@CurrentUser() userId: string) {
+    return this.chat.unreadCount(userId);
+  }
+
   @Get("conversations/:id/messages")
   getMessages(@CurrentUser() userId: string, @Param("id", ParseUUIDPipe) id: string) {
     return this.chat.getMessages(userId, id);

@@ -27,7 +27,11 @@ export function ChatThread({
   useEffect(() => {
     api
       .getMessages(conversationId)
-      .then(setMessages)
+      .then((msgs) => {
+        setMessages(msgs);
+        // Fetching a thread marks it read server-side, so the TopBar badge is now stale.
+        window.dispatchEvent(new Event("grid:unread-changed"));
+      })
       .catch((err) => setError(err instanceof ApiError ? err.message : "Something went wrong"));
 
     const socket = getSocket();
